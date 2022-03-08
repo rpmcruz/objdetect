@@ -3,11 +3,10 @@ from torchinfo import summary
 from torch import nn
 import torch
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import objdetect as od
 
 DOWNLOAD = False  # use True on first usage
-EPOCHS = 50
+EPOCHS = 200
 BATCH_SIZE = 32
 N_ANCHORS = 9
 IMAGE_SIZE = (256, 256, 3)
@@ -28,7 +27,7 @@ anchors = od.anchors.compute_clusters(tr, N_ANCHORS)
 # then re-load dataset, now with the anchors
 grid_transform = lambda datum: od.grid.bboxes_to_grids(datum, GRID_SIZE, anchors)
 tr = od.datasets.VOCDetection('data', 'train', False, transforms, grid_transform)
-labels = tr.labels
+labels = od.datasets.VOCDetection.labels
 
 # create model
 backbone = od.models.Backbone(IMAGE_SIZE, GRID_SIZE)
@@ -47,7 +46,7 @@ losses = {
     'bboxes_grid': nn.MSELoss(),
     'classes_grid': nn.CrossEntropyLoss(),
 }
-od.loop.train(model, tr, opt, losses, 1)
+od.loop.train(model, tr, opt, losses, EPOCHS)
 
 # save things
 torch.save({'model': model, 'anchors': anchors}, 'model.pth')

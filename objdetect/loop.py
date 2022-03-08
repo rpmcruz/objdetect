@@ -19,7 +19,7 @@ def train(model, tr, opt, losses, epochs):
             preds = model(X)
             loss = sum(losses[key](
                 # get rid of anchors because CE loss doesn't work with 5-dims
-                preds[key].flatten(0, 1), data[key].flatten(0, 1).cuda())
+                preds[key].flatten(0, 1).squeeze(), data[key].flatten(0, 1).squeeze().cuda())
                 for key in losses)
             loss.backward()
             opt.step()
@@ -28,13 +28,15 @@ def train(model, tr, opt, losses, epochs):
         print(f'- {toc-tic:.1f}s - Loss: {avg_loss}')
 
 def evaluate(model, ts, inv_grid_transform):
-    all_preds = []
+    list_inputs = []
+    list_preds = []
     model.eval()
     for data in ts:
         X = data['image'].permute(0, 3, 1, 2).cuda()
         with torch.no_grad():
             preds = model(X)
-        preds = preds.detach().cpu().numpy()
+        preds = {k: v.detach().cpu().numpy() for k, v in preds.items()}
         preds = inv_grid_transform(preds)
-        all_preds.append(preds)
-    return all_preds
+        list_inputs += inv_grid_transform(data)
+        list_preds += preds
+    return list_inputs, list_preds

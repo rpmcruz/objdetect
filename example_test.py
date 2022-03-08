@@ -3,7 +3,6 @@ from torchinfo import summary
 from torch import nn
 import torch
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import objdetect as od
 
 BATCH_SIZE = 32
@@ -22,8 +21,15 @@ transforms = A.Compose([
 
 grid_transform = lambda datum: od.grid.bboxes_to_grids(datum, GRID_SIZE, anchors)
 ts = od.datasets.VOCDetection('data', 'val', False, transforms, grid_transform)
-labels = tr.labels
+labels = od.datasets.VOCDetection.labels
 ts = DataLoader(ts, BATCH_SIZE)
 
-inv_grid_transform = lambda x: od.grid.batch_grids_to_bboxes(x, 'pred_', (256, 256, 3), anchors)
-preds = od.loop.evaluate(model, ts, inv_grid_transform)
+inv_grid_transform = lambda x: od.grid.batch_grids_to_bboxes(x, IMAGE_SIZE, anchors)
+inputs, preds = od.loop.evaluate(model, ts, inv_grid_transform)
+
+import matplotlib.pyplot as plt
+for input, pred in zip(inputs, preds):
+    plt.imshow(input['image'])
+    od.plot.bboxes_with_classes(input['bboxes'], input['classes'], IMAGE_SIZE, 'g', '--')
+    od.plot.bboxes_with_classes(pred['bboxes'], pred['classes'], IMAGE_SIZE, 'r', '-')
+    plt.show()

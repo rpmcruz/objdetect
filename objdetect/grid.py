@@ -22,7 +22,7 @@ def bboxes_to_grids(datum, grid_size, anchors):
     ret_datum = {'image': datum['image'], 'confs_grid': H_grid,
         'bboxes_grid': B_grid}
     if 'classes' in datum:
-        C_grid = np.zeros((n_anchors, *grid_size), np.int64)
+        C_grid = np.zeros((n_anchors, 1, *grid_size), np.int64)
         ret_datum['classes_grid'] = C_grid
     for bi, b in enumerate(datum['bboxes']):
         xc = (b[0]+b[2]) / 2
@@ -43,27 +43,29 @@ def bboxes_to_grids(datum, grid_size, anchors):
         B_grid[ai, 2, j, i] = np.log((b[2]-b[0]) / size[0])
         B_grid[ai, 3, j, i] = np.log((b[3]-b[1]) / size[1])
         if 'classes' in datum:
-            C_grid[ai, j, i] = datum['classes'][bi]
+            C_grid[ai, 0, j, i] = datum['classes'][bi]
     return ret_datum
 
-def batch_grids_to_bboxes(data, prefix, image_size, anchors):
+def batch_grids_to_bboxes(data, image_size, anchors):
     assert 'confs_grid' in data, 'Must contain at least one grid'
     if anchors is None:
         anchors = [(1, 1)]
-    grid_size = confs_grid.shape[-2:]
+    grid_size = data['confs_grid'].shape[-2:]
     cell_size = image_size[0] // grid_size[0]
     ret = []
-    for i, img in enumerate(data['image']):
+    for i in range(len(data['confs_grid'])):
         bboxes = []
-        ret_datum = {'image': img, prefix+'bboxes': bboxes}
-        if prefix+'classes_grid' in data:
+        ret_datum = {'bboxes': bboxes}
+        if 'classes_grid' in data:
             classes = []
-            ret_datum[prefix+'classes'] = classes
+            ret_datum['classes'] = classes
+        if 'image' in data:
+            ret_datum['image'] = data['image'][i]
         ret.append(ret_datum)
         for gi in range(grid_size[1]):
             for gj in range(grid_size[0]):
                 for ai in range(len(anchors)):
-                    if data['confs_grid'][i, ai, gj, gi] >= 0.5:
+                    if data['confs_grid'][i, ai, 0, gj, gi] >= 0.5:
                         offset_x, offset_y, log_w, log_h = data['bboxes_grid'][i, ai, :, gj, gi]
                         xmin = (gi+offset_x)*cell_size
                         ymin = (gj+offset_y)*cell_size
