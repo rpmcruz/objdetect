@@ -3,6 +3,7 @@ from torchinfo import summary
 from torch import nn
 import torch
 import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import objdetect as od
 
 DOWNLOAD = False  # use True on first usage
@@ -13,11 +14,12 @@ IMAGE_SIZE = (256, 256, 3)
 GRID_SIZE = (8, 8)
 
 # you may use albumentations or your own function
-data_aug = A.Compose([
+transforms = A.Compose([
     A.Resize(int(IMAGE_SIZE[0]*1.1), int(IMAGE_SIZE[1]*1.1)),
     A.RandomCrop(IMAGE_SIZE[0], IMAGE_SIZE[1]),
     A.HorizontalFlip(),
     A.RandomBrightnessContrast(),
+    A.Normalize(0, 1),
 ], bbox_params=A.BboxParams('albumentations', ['classes']))
 
 # first, find anchors without augmentation
@@ -25,7 +27,7 @@ tr = od.datasets.VOCDetection('data', 'train', DOWNLOAD, None, None)
 anchors = od.anchors.compute_clusters(tr, N_ANCHORS)
 # then re-load dataset, now with the anchors
 grid_transform = lambda datum: od.grid.bboxes_to_grids(datum, GRID_SIZE, anchors)
-tr = od.datasets.VOCDetection('data', 'train', False, data_aug, grid_transform)
+tr = od.datasets.VOCDetection('data', 'train', False, transforms, grid_transform)
 labels = tr.labels
 
 # create model
@@ -45,5 +47,7 @@ losses = {
     'bboxes_grid': nn.MSELoss(),
     'classes_grid': nn.CrossEntropyLoss(),
 }
-od.loop.train(model, tr, losses, EPOCHS)
-model.save('model.pth')
+od.loop.train(model, tr, opt, losses, 1)
+
+# save things
+torch.save({'model': model, 'anchors': anchors}, 'model.pth')

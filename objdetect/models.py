@@ -47,10 +47,12 @@ class Head(nn.Module):
         self.n_anchors = n_anchors
 
     def forward(self, x):
-        h = self.has_conv(x).view(-1, self.n_anchors, 1)
+        h = self.has_conv(x)
+        h = h.view(h.shape[0], self.n_anchors, 1, h.shape[2], h.shape[3])
         if not self.training:
             h = torch.sigmoid(h)
-        b = self.bbox_conv(x).view(-1, self.n_anchors, 4)
+        b = self.bbox_conv(x)
+        b = b.view(b.shape[0], self.n_anchors, 4, b.shape[2], b.shape[3])
         b[:, 0] = torch.sigmoid(b[:, 0])
         b[:, 1] = torch.sigmoid(b[:, 1])
         return {'confs_grid': h, 'bboxes_grid': b}
@@ -63,10 +65,11 @@ class HeadWithClasses(Head):
 
     def forward(self, x):
         outputs = super().forward(x)
-        y = self.classes_conv(x).view(-1, self.n_anchors, self.n_classes)
+        y = self.classes_conv(x)
+        y = y.view(y.shape[0], self.n_anchors, self.n_classes, y.shape[2], y.shape[3])
         if not self.training:
             y = F.softmax(y, 2)
-        outputs['labels_grid'] = y
+        outputs['classes_grid'] = y
         return outputs
 
 class Model(nn.Module):  # same as before
