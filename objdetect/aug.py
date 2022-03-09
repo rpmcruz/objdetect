@@ -1,34 +1,64 @@
 from skimage import transform
 import numpy as np
 
-def resize(img_size):
-    def f(x, bb):
-        x = transform.resize(x, img_size)
-        return x, bb
+'''
+You do not need to use our augmentation methods. You can easily use
+Albumentations or any other package. Our API should be similar in use to
+Albumentations, but simpler. Look at the bottom for an usage example.
+'''
+
+def Combine(*l):
+    def f(**datum):
+        for t in l:
+            datum = t(**datum)
+        return datum
     return f
 
-def random_resize_crop(img_size1, img_size2):
-    crop_size = (img_size1[0]-img_size2[0], img_size1[1]-img_size2[1])
-    assert crop_size[0] > 0, 'crop width must be positive'
-    assert crop_size[1] > 0, 'crop height must be positive'
-    def f(x, bb):
-        i = np.random.randint(0, crop_size[0])
-        j = np.random.randint(0, crop_size[1])
-        x = transform.resize(x, img_size1)
-        x = x[j:j-crop_size[0], i:i-crop_size[1]]
-        bb[:, 0] = np.maximum(bb[:, 0]-i/img_size1[0], 0)
-        bb[:, 1] = np.maximum(bb[:, 1]-j/img_size1[1], 0)
-        return x, bb
+def Resize(img_size):
+    def f(image, **args):
+        image = transform.resize(image, img_size).astype(np.float32)
+        return {**args, 'image': image}
     return f
 
-def random_hflip(x, bb):
-    if np.random.rand() < 0.5:
-        x = np.flip(x, 1)
-        bb[:, 0] = 1-bb[:, 0]
-    return x, bb
+def RandomCrop(crop_size):
+    def f(image, bboxes, **args):
+        orig_shape = image.shape
+        i = np.random.randint(0, orig_shape[1]-crop_size[0])
+        j = np.random.randint(0, orig_shape[0]-crop_size[1])
+        image = image[j:j+crop_size[1], i:i+crop_size[0]]
+        bboxes = [(
+            max((b[0]*orig_shape[1] - i)/crop_size[0], 0),
+            max((b[1]*orig_shape[0] - j)/crop_size[1], 0),
+            min((b[2]*orig_shape[1] - i)/crop_size[0], 1),
+            min((b[3]*orig_shape[0] - j)/crop_size[1], 1),
+        ) for b in bboxes]
+        # filter bounding boxes outside the view
+        bboxes = [b for b in bboxes if b[0] < b[2] and b[1] < b[3]]
+        return {**args, 'image': image, 'bboxes': bboxes}
+    return f
 
-def random_contrast_brightness(x, bb):
-    alpha = np.random.rand()*0.2
-    beta = np.random.rand()*0.2
-    x = x*alpha + beta
-    return x, bb
+def RandomHflip():
+    def f(image, bboxes, **args):
+        if np.random.rand() < 0.5:
+            image = np.flip(image, 1)
+            bboxes = [(1-b[2], b[1], 1-b[0], b[3]) for b in bboxes]
+        return {**args, 'image': image, 'bboxes': bboxes}
+    return f
+
+def RandomBrightnessContrast(value=0.2):
+    def f(image, **args):
+        alpha = 1 - (np.random.rand()*value - value/2)
+        beta = np.random.rand()*value - value/2
+        image = np.clip(image*alpha + beta, 0, 1)
+        return  {**args, 'image': image}
+    return f
+
+if __name__ == '__main__':  # debug
+    import matplotlib.pyplot as plt
+    import datasets, plot
+    aug = Combine(Resize((282, 282)), RandomCrop((256, 256)), RandomHflip(), RandomBrightnessContrast())
+    ds = datasets.VOCDetection('data', 'train', False, aug, None)
+    datum = ds[0]
+    plt.imshow(datum['image'])
+    plot.bboxes(datum['image'], datum['bboxes'])
+    plt.show()

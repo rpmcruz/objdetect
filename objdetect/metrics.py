@@ -1,10 +1,10 @@
 import numpy as np
 
 def IoU(b_true, b_pred):
-    left_x = max(b_true[0]-b_true[2], b_pred[0]-b_pred[2])
-    right_x = min(b_true[0]+b_true[2], b_pred[0]+b_pred[2])
-    top_y = max(b_true[1]-b_true[3], b_pred[1]-b_pred[3])
-    bottom_y = min(b_true[1]+b_true[3], b_pred[1]+b_pred[3])
+    left_x = max(b_true[0], b_pred[0])
+    right_x = min(b_true[2], b_pred[2])
+    top_y = max(b_true[1], b_pred[1])
+    bottom_y = min(b_true[3], b_pred[3])
     intersection = (right_x-left_x) * (bottom_y-top_y)
     union = b_true[2]*b_true[3]*4 + b_pred[2]*b_pred[3]*4 - intersection**2
     return intersection / union

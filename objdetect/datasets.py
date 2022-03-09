@@ -18,15 +18,15 @@ class VOCDetection(datasets.VOCDetection):
         self.grid_transform = grid_transform
 
     def __getitem__(self, i):
-        x, xml = super().__getitem__(i)
+        img, xml = super().__getitem__(i)
         objs = xml['annotation']['object']
         datum = {
-            'image': np.array(x),
+            'image': np.array(img),
             'bboxes': [(
-                int(o['bndbox']['xmin']) / x.size[0],
-                int(o['bndbox']['ymin']) / x.size[1],
-                int(o['bndbox']['xmax']) / x.size[0],
-                int(o['bndbox']['ymax']) / x.size[1],
+                float(o['bndbox']['xmin']) / img.size[0],
+                float(o['bndbox']['ymin']) / img.size[1],
+                float(o['bndbox']['xmax']) / img.size[0],
+                float(o['bndbox']['ymax']) / img.size[1],
             ) for o in objs],
             'classes': [self.labels.index(o['name']) for o in objs],
         }

@@ -19,9 +19,11 @@ def train(model, tr, opt, losses, epochs):
             X = data['image'].permute(0, 3, 1, 2).cuda()
             preds = model(X)
             loss = sum(losses[key](
-                # get rid of anchors because CE loss doesn't work with 5-dims
-                preds[key].flatten(0, 1).squeeze(), data[key].flatten(0, 1).squeeze().cuda())
-                for key in losses)
+                # permutate and flatten so that we have a vector of features
+                # squeeze removes the feature dimension if there is only one feature
+                preds[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda(),
+                data[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
+                ) for key in losses)
             loss.backward()
             opt.step()
             avg_loss += float(loss) / len(tr)
