@@ -24,12 +24,12 @@ ts = od.datasets.VOCDetection('data', 'val', False, transforms, grid_transform)
 labels = od.datasets.VOCDetection.labels
 ts = DataLoader(ts, BATCH_SIZE)
 
-inv_grid_transform = lambda x: od.grid.batch_grids_to_bboxes(x, IMAGE_SIZE, anchors)
+inv_grid_transform = lambda x: od.grid.batch_grids_to_bboxes(x, anchors)
 inputs, preds = od.loop.evaluate(model, ts, inv_grid_transform)
 
 import matplotlib.pyplot as plt
 for input, pred in zip(inputs, preds):
     plt.imshow(input['image'])
-    od.plot.bboxes_with_classes(input['bboxes'], input['classes'], IMAGE_SIZE, 'g', '--')
-    od.plot.bboxes_with_classes(pred['bboxes'], pred['classes'], IMAGE_SIZE, 'r', '-')
+    od.plot.bboxes_with_classes(input['bboxes'], input['classes'], IMAGE_SIZE, labels, 'g', '--')
+    od.plot.bboxes_with_classes(pred['bboxes'], pred['classes'], IMAGE_SIZE, labels, 'r', '-')
     plt.show()

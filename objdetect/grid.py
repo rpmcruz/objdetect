@@ -46,12 +46,12 @@ def bboxes_to_grids(datum, grid_size, anchors):
             C_grid[ai, 0, j, i] = datum['classes'][bi]
     return ret_datum
 
-def batch_grids_to_bboxes(data, image_size, anchors):
+def batch_grids_to_bboxes(data, anchors):
     assert 'confs_grid' in data, 'Must contain at least one grid'
     if anchors is None:
         anchors = [(1, 1)]
     grid_size = data['confs_grid'].shape[-2:]
-    cell_size = image_size[0] // grid_size[0]
+    cell_size = 1 / grid_size[0]
     ret = []
     for i in range(len(data['confs_grid'])):
         bboxes = []
@@ -69,9 +69,9 @@ def batch_grids_to_bboxes(data, image_size, anchors):
                         offset_x, offset_y, log_w, log_h = data['bboxes_grid'][i, ai, :, gj, gi]
                         xmin = (gi+offset_x)*cell_size
                         ymin = (gj+offset_y)*cell_size
-                        xmax = xmin + anchors[ai][0]*np.exp(log_w)*image_size[0]
-                        ymax = ymin + anchors[ai][1]*np.exp(log_h)*image_size[1]
+                        xmax = xmin + anchors[ai][0]*np.exp(log_w)
+                        ymax = ymin + anchors[ai][1]*np.exp(log_h)
                         bboxes.append((xmin, ymin, xmax, ymax))
                         if 'classes_grid' in data:
-                            classes.append(data['classes_grid'][i, ai, :, gj, gi].argmax())
+                            classes.append(int(data['classes_grid'][i, ai, :, gj, gi].argmax()))
     return ret

@@ -1,4 +1,5 @@
 from time import time
+from tqdm import tqdm
 import torch
 
 '''
@@ -31,7 +32,7 @@ def evaluate(model, ts, inv_grid_transform):
     list_inputs = []
     list_preds = []
     model.eval()
-    for data in ts:
+    for data in tqdm(ts):
         X = data['image'].permute(0, 3, 1, 2).cuda()
         with torch.no_grad():
             preds = model(X)
