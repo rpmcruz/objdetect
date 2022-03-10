@@ -24,7 +24,7 @@ The package is divided in the following components:
 * [loop](#loop): Convenience functions to train and evaluate the model.
 * [post](#post): Post-processing algorithms; for now, non-maximum suppression.
 * [metrics](#metrics): Common metrics.
-* [anchors](#anchors): Utility function to find the best anchor cluster.
+* [anchors](#anchors): Utility function to find the best anchors cluster.
 
 Each component is described below. But we also recommend that you have a look at the code itself for the full API.
 
