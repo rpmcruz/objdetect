@@ -15,12 +15,12 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 ## Usage
 
-The package is divided into the following components:
+The package is divided into the following components (ordered by appearance in this document):
 
 * [`datasets`](#datasets): Toy datasets. Explore them to see how to plug a new dataset.
-* **`aug`**: Some data augmentation routines. You do not have to use them, you can easily use albumentations.
 * [`grid`](#grid): Bounding box <=> grid conversion functions.
 * [`models`](#models): Examples of models. You may use your own backbones or heads, as long as it follows the same interface.
+* [`aug`](#aug): Some data augmentation routines.
 * [`loop`](#loop): Convenience functions to train and evaluate the model.
 * [`post`](#post): Post-processing algorithms; for now, non-maximum suppression.
 * [`metrics`](#metrics): Common metrics.
@@ -72,7 +72,7 @@ print(datum.keys())
 dict_keys(['image', 'confs_grid', 'bboxes_grid', 'classes_grid'])
 ```
 
-We recommend applying grid transformations in the Dataset class itself. We provide some data augmentation routines, but you can use albumentations (like in our `exampe_train.py`) or any other package.
+We recommend applying grid transformations in the Dataset class itself. We also provide some data augmentation routines (more on that below).
 
 ```python
 transform = od.aug.Resize((256, 256))
@@ -119,6 +119,18 @@ model = od.models.Model(backbone, head).cuda()
 
 The values in <span style="color:red">red</span> are the anchors (more about that below). In this case, we are not going to use anchors, so they are 1.
 
+### aug
+
+For data augmentation, you may use [Albumentations](https://albumentations.ai/) or our routines or another package. We provide some basic augmentation functions. The API is also based on dictionaries and should be compatible with Albumentations. In our `exampe_train.py`, we use Albumentations.
+
+```python
+transform = od.aug.Combine(
+    od.aug.Resize((282, 282)), od.aug.RandomCrop((256, 256)),
+    od.aug.RandomHflip(), od.aug.RandomBrightnessContrast()
+)
+tr = od.datasets.VOCDetection('data', 'train', download, transform, grid_transform)
+```
+
 ### loop
 
 We provide convenience functions for training. Losses must be a dictionary with the same keys as the previous ones.
@@ -127,12 +139,6 @@ We provide convenience functions for training. Losses must be a dictionary with 
 from torch.utils.data import DataLoader
 from torch import nn
 import torch
-
-transform = od.aug.Combine(
-    od.aug.Resize((282, 282)), od.aug.RandomCrop((256, 256)),
-    od.aug.RandomHflip(), od.aug.RandomBrightnessContrast()
-)
-tr = od.datasets.VOCDetection('data', 'train', download, transform, grid_transform)
 
 tr = DataLoader(tr, 128, True, num_workers=2)
 opt = torch.optim.Adam(model.parameters())
