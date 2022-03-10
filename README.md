@@ -215,12 +215,12 @@ The framework also supports anchors. To compute the anchors, you may use our uti
 
 ```python
 tr = od.datasets.VOCDetection('data', 'train', False, None, None)
+anchors = od.anchors.compute_clusters(tr, 9)
 ```
 
 For debugging purposes, we can plot them:
 
 ```python
-anchors = od.anchors.compute_clusters(tr, 9)
 od.plot.anchors(anchors)
 plt.show()
 ```
