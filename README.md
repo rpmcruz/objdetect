@@ -17,14 +17,14 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 The package is divided in the following components:
 
-* [datasets](#datasets): Toy datasets. Explore them to see how to plug a new dataset.
-* **aug**: Some data augmentation routines. You do not have to use them, you can easily use albumentations.
-* [grid](#grid): Bounding box <=> grid conversion functions.
-* [models](#models): Examples of models. You may use your own backbones or heads, as long as it follows the same interface.
-* [loop](#loop): Convenience functions to train and evaluate the model.
-* [post](#post): Post-processing algorithms; for now, non-maximum suppression.
-* [metrics](#metrics): Common metrics.
-* [anchors](#anchors): Utility function to find the best anchors cluster.
+* [`datasets`](#datasets): Toy datasets. Explore them to see how to plug a new dataset.
+* **`aug`**: Some data augmentation routines. You do not have to use them, you can easily use albumentations.
+* [`grid`](#grid): Bounding box <=> grid conversion functions.
+* [`models`](#models): Examples of models. You may use your own backbones or heads, as long as it follows the same interface.
+* [`loop`](#loop): Convenience functions to train and evaluate the model.
+* [`post`](#post): Post-processing algorithms; for now, non-maximum suppression.
+* [`metrics`](#metrics): Common metrics.
+* [`anchors`](#anchors): Utility function to find the best anchors cluster.
 
 Each component is described below. But we also recommend that you have a look at the code itself for the full API.
 
