@@ -121,7 +121,7 @@ The values in <span style="color:red">red</span> are the anchors (more about tha
 
 ### aug
 
-For data augmentation, you may use [Albumentations](https://albumentations.ai/) or our routines or another package. We provide some basic augmentation functions. The API is also based on dictionaries and should be compatible with Albumentations. In our `exampe_train.py`, we use Albumentations.
+For data augmentation, you may use [Albumentations](https://albumentations.ai/) or our routines or another package. We provide some basic augmentation functions. The API is also based on dictionaries and should be compatible with Albumentations. In our `example_train.py`, we use Albumentations.
 
 ```python
 transform = od.aug.Combine(
