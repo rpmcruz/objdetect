@@ -175,8 +175,9 @@ As commonly done, you may use a post-processing algorithm, such as Non-Maximum S
 ```python
 for pred in preds:
     pred['bboxes'], pred['classes'] = od.post.NMS(pred['confs'], pred['bboxes'], pred['classes'])
+```
 
-
+```python
 import matplotlib.pyplot as plt
 for i in range(12):
     plt.subplot(2, 6, i+1)
