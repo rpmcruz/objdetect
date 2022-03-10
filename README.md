@@ -17,7 +17,7 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 ### Dataset
 
-Each dataset must return a single "datum", which is a dictionary containing at least image and bboxes. Optionally, it can also contain classes and other attributes. In this package, we heavily rely on dictionaries to bind the data inputs, the model outputs and the loss functions.
+Each dataset must return a single "datum", which is a dictionary containing at least `image` and `bboxes`. Optionally, it can also contain `classes` and other attributes (such as `cos_angle` and `sin_angle` for Pixor). In this package, we heavily rely on dictionaries to bind the data inputs, the model outputs and the loss functions.
 
 Each bounding box uses the format `(xmin, ymin, xmax, ymax)` with each value normalized [0,1].
 
