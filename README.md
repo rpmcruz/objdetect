@@ -1,5 +1,5 @@
 # objdetect
-Light one-stage object detection framework
+Light-weight and versatile one-stage object detection framework
 
 ## Introduction
 
