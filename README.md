@@ -131,6 +131,8 @@ od.loop.train(model, tr, opt, losses, 100)
 torch.save(model, 'model.pth')
 ```
 
+For better results, you may need to train for much longer epochs and possibly use a [focal loss](https://pytorch.org/vision/stable/_modules/torchvision/ops/focal_loss.html) (like in RetinaNet) to cope with the natural object imbalance.
+
 ### Evaluation
 
 After the model has been trained, we can predict the objects:
