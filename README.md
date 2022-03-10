@@ -66,14 +66,9 @@ transform = od.aug.Resize((256, 256))
 tr = od.datasets.VOCDetection('data', 'train', download, transform, grid_transform)
 ```
 
-The grid transformation is used for training and then you invert the grid back before plotting or applying metrics. The inversion function receives images in batch format since it is typically used on the network outputs, and returns a list with each datum.
+Just for illustration purposes we have a debug function to plot the grid directly (if no anchors are used, otherwise it shows only the objects for the first anchor):
 
 ```python
-inv_grid_transform = od.grid.BatchFromGridTransform(None)
-batch = {k: v[None] for k, v in datum.items()}
-inv_datum = inv_grid_transform(batch)[0]
-
-import matplotlib.pyplot as plt
 plt.imshow(datum['image'])
 od.plot.grid_without_anchors(datum['image'], datum['confs_grid'], datum['bboxes_grid'])
 plt.show()
@@ -81,7 +76,13 @@ plt.show()
 
 ![Grid debug plot](imgs/grid.png)
 
+The grid transformation is used for training and then you invert the grid back before plotting or applying metrics. The inversion function receives images in batch format since it is typically used on the network outputs, and returns a list with each datum.
+
 ```python
+inv_grid_transform = od.grid.BatchFromGridTransform(None)
+batch = {k: v[None] for k, v in datum.items()}
+inv_datum = inv_grid_transform(batch)[0]
+
 plt.imshow(datum['image'])
 od.plot.bboxes_with_classes(datum['image'], inv_datum['bboxes'], inv_datum['classes'], labels, 'blue')
 plt.show()
