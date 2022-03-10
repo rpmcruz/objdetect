@@ -136,8 +136,12 @@ torch.save(model, 'model.pth')
 After the model has been trained, we can predict the objects:
 
 ```python
+transform = od.aug.Resize((282, 282))
+ts = od.datasets.VOCDetection('data', 'val', download, transform, grid_transform)
+ts = DataLoader(ts, 128, num_workers=2)
+
 inv_grid_transform = od.grid.BatchFromGridTransform(None, 0.1)
-inputs, preds = od.loop.evaluate(model, tr, inv_grid_transform)
+inputs, preds = od.loop.evaluate(model, ts, inv_grid_transform)
 
 import matplotlib.pyplot as plt
 for i in range(12):
