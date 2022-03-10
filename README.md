@@ -15,7 +15,20 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 ## Usage
 
-### Dataset
+The package is divided in the following components:
+
+* [datasets](#datasets): Toy datasets. Explore them to see how to plug a new dataset.
+* **aug**: Some data augmentation routines. You do not have to use them, you can easily use albumentations.
+* [grid](#grid): Bounding box <=> grid conversion functions.
+* [models](#models): Examples of models. You may use your own backbones or heads, as long as it follows the same interface.
+* [loop](#loop): Convenience functions to train and evaluate the model.
+* [post](#post): Post-processing algorithms; for now, non-maximum suppression.
+* [metrics](#metrics): Common metrics.
+* [anchors](#anchors): Utility function to find the best anchor cluster.
+
+Each component is described below. But we also recommend that you have a look at the code itself for the full API.
+
+### datasets
 
 Each dataset must return a single "datum", which is a dictionary containing at least `image` and `bboxes`. Optionally, it can also contain `classes` and other attributes (such as `cos_angle` and `sin_angle` for Pixor). In this package, we heavily rely on dictionaries to bind the data inputs, the model outputs and the loss functions.
 
@@ -45,7 +58,7 @@ plt.show()
 
 ![Bounding boxes plot](imgs/bboxes.png)
 
-### Grid transformation
+### grid
 
 In one-shot detection, the model receives the bounding boxes in the form of a grid. We provide routines to do this transformation and its inverse. Here we are going for a 8x8 grid and we are not going to use anchors. Please see example_train.py on how to use anchors. The shape of our grids are: `(N, Nf, Na, H, W)`, where `Nf` are the features of the grid (for example, 4 for the bounding box) and `Na` the number of anchors (for consistency, even if no anchors are used, this value is 1).
 
@@ -90,7 +103,7 @@ plt.show()
 
 ![Bounding boxes inversion debug plot](imgs/bboxes-inv.png)
 
-### Model
+### models
 
 To build the model we recommend defining the backbone and head separately. The head must output keys that match those from the grid transform (`confs_grid`, `bboxes_grid`, and possibly others, such as `classes_grid`).
 
@@ -106,7 +119,7 @@ model = od.models.Model(backbone, head).cuda()
 
 The values in <span style="color:red">red</span> are the anchors (more about that below). In this case, we are not going to use anchors, so they are 1.
 
-### Training
+### loop
 
 We provide convenience functions for training. Losses must be a dictionary with the same keys as the previous ones.
 
@@ -134,8 +147,6 @@ torch.save(model, 'model.pth')
 
 For better results, you may need to train for much longer epochs and possibly use a [focal loss](https://pytorch.org/vision/stable/_modules/torchvision/ops/focal_loss.html) (like in RetinaNet) to cope with the natural object imbalance.
 
-### Evaluation
-
 After the model has been trained, we can predict the objects:
 
 ```python
@@ -157,6 +168,8 @@ plt.show()
 
 ![Model predictions output](imgs/preds.png)
 
+### post
+
 As commonly done, you may use a post-processing algorithm, such as Non-Maximum Suppression (NMS), to reduce the number of false bounding boxes.
 
 ```python
@@ -175,7 +188,7 @@ plt.show()
 
 ![Model predictions output](imgs/preds-nms.png)
 
-### Metrics
+### metrics
 
 Our framework also has common the common AP metric based on precision-recall, but it is not well tested.
 
@@ -195,7 +208,7 @@ print('AP:', od.metrics.AP(preds['confs'], inputs['bboxes'], preds['bboxes'], 0.
 TO DO
 ```
 
-### Anchors
+### anchors
 
 The framework also supports anchors. To compute the anchors, you may use our utility which uses KMeans. For example, if you want to find the best 9 anchors:
 
