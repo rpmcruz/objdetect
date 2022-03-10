@@ -6,6 +6,9 @@ import torch
 Convenience functions for the training and evaluation loops. Losses must be a
 dictionary, specifying which loss to use for each respective model output and
 input data.
+
+Please keep in mind that losses may not produce a scalar -- i.e., you must use
+reduce='none'.
 '''
 
 def train(model, tr, opt, losses, epochs):
@@ -18,12 +21,24 @@ def train(model, tr, opt, losses, epochs):
             opt.zero_grad()
             X = data['image'].permute(0, 3, 1, 2).cuda()
             preds = model(X)
-            loss = sum(losses[key](
+
+            loss = 0
+            confs_grid = data['confs_grid'].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
+            for key in losses:
+                # we must mupltiply all loss value (except for confs_grid) by
+                # data[confs_grid] (which is 0 or 1) so that if there is no
+                # object then the model is *not* penalized.
+                coef = 1 if key == 'confs_grid' else confs_grid
                 # permutate and flatten so that we have a vector of features
                 # squeeze removes the feature dimension if there is only one feature
-                preds[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda(),
-                data[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
-                ) for key in losses)
+                _preds = preds[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
+                _inputs = data[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
+                loss_value = losses[key](_preds, _inputs)
+                assert loss_value.ndim > 0, f"Loss {key} cannot produce scalars (ensure you use reduce='none')"
+                if len(loss_value.shape) > 1:
+                    loss_value = loss_value.sum(1)
+                loss += (coef * loss_value).mean()
+
             loss.backward()
             opt.step()
             avg_loss += float(loss) / len(tr)

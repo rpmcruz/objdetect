@@ -1,4 +1,5 @@
 from torchvision import datasets
+from torch.utils.data import Dataset
 import numpy as np
 
 '''
@@ -28,10 +29,36 @@ class VOCDetection(datasets.VOCDetection):
                 float(o['bndbox']['xmax']) / img.size[0],
                 float(o['bndbox']['ymax']) / img.size[1],
             ) for o in objs],
-            'classes': [self.labels.index(o['name']) for o in objs],
+            'classes': np.array([self.labels.index(o['name']) for o in objs], np.int64),
         }
         if self.od_transforms:
             datum = self.od_transforms(**datum)
         if self.grid_transform:
             datum = self.grid_transform(datum)
         return datum
+
+class DebugDataset(Dataset):  # used to debug models (loads only N images)
+    def __init__(self, ds, N):
+        super().__init__()
+        self.ds = ds
+        self.N = N
+
+    def __len__(self):
+        return self.N
+
+    def __getitem__(self, i):
+        return self.ds[i]
+
+if __name__ == '__main__':  # debug a dataset
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    parser.add_argument('--download', action='store_true')
+    args = parser.parse_args()
+    import matplotlib.pyplot as plt
+    import plot
+    ds = globals()[args.dataset]('data', 'train', args.download, None, None)
+    datum = ds[0]
+    plt.imshow(datum['image'])
+    plot.bboxes(datum['image'], datum['bboxes'])
+    plt.show()

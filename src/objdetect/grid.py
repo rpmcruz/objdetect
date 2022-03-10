@@ -40,9 +40,13 @@ def bboxes_to_grids(datum, grid_size, anchors):
     B_grid = np.zeros((4, n_anchors, *grid_size), np.float32)
     ret_datum = {'image': datum['image'], 'confs_grid': H_grid,
         'bboxes_grid': B_grid}
-    if 'classes' in datum:
-        C_grid = np.zeros((1, n_anchors, *grid_size), np.int64)
-        ret_datum['classes_grid'] = C_grid
+
+    # these extra grids can include things like 'classes' or 'angles' (for
+    # networks like pixor)
+    extra_keys = set(datum.keys()) - {'image', 'bboxes'}
+    for k in extra_keys:
+        ret_datum[k + '_grid'] = np.zeros((1, n_anchors, *grid_size), datum[k].dtype)
+
     for bi, b in enumerate(datum['bboxes']):
         xc = (b[0]+b[2]) / 2
         yc = (b[1]+b[3]) / 2
@@ -61,8 +65,8 @@ def bboxes_to_grids(datum, grid_size, anchors):
         B_grid[1, ai, gy, gx] = offset_y
         B_grid[2, ai, gy, gx] = np.log((b[2]-b[0]) / size[0])
         B_grid[3, ai, gy, gx] = np.log((b[3]-b[1]) / size[1])
-        if 'classes' in datum:
-            C_grid[0, ai, gy, gx] = datum['classes'][bi]
+        for k in extra_keys:
+            ret_datum[k + '_grid'][0, ai, gy, gx] = datum[k][bi]
     return ret_datum
 
 def batch_grids_to_bboxes(data, anchors, confidence_threshold=0.5):
@@ -76,9 +80,12 @@ def batch_grids_to_bboxes(data, anchors, confidence_threshold=0.5):
         bboxes = []
         confs = []
         ret_datum = {'bboxes': bboxes, 'confs': confs}
-        if 'classes_grid' in data:
-            classes = []
-            ret_datum['classes'] = classes
+
+        # extra grids are automatically converted here
+        extra_keys = set(data.keys()) - {'image', 'bboxes_grid', 'confs_grid'}
+        for k in extra_keys:
+            ret_datum[k[:-5]] = []
+
         if 'image' in data:
             ret_datum['image'] = data['image'][i]
         ret.append(ret_datum)
@@ -99,12 +106,15 @@ def batch_grids_to_bboxes(data, anchors, confidence_threshold=0.5):
                         ymax = ymin + h
                         bboxes.append((xmin, ymin, xmax, ymax))
                         if 'classes_grid' in data:
+                            # classes conversion is a special case
                             if data['classes_grid'].shape[1] == 1:
                                 _class = data['classes_grid'][i, 0, ai, gy, gx]
                             else:
                                 pclass = data['classes_grid'][i, :, ai, gy, gx].max()
                                 conf *= pclass
                                 _class = data['classes_grid'][i, :, ai, gy, gx].argmax()
-                            classes.append(int(_class))
+                            ret_datum['classes'].append(int(_class))
+                        for extra_key in extra_keys - {'classes_grid'}:
+                            ret_datum[k[:-5]].append(data[k][i, 0, ai, gy, gx])
                         confs.append(conf)
     return ret

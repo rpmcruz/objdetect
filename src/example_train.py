@@ -46,9 +46,9 @@ print('outputs:', [f'{k}: {v.shape}' for k, v in outputs.items()])
 tr = DataLoader(tr, args.batchsize, True)
 opt = torch.optim.Adam(model.parameters())
 losses = {
-    'confs_grid': nn.BCEWithLogitsLoss(),
-    'bboxes_grid': nn.MSELoss(),
-    'classes_grid': nn.CrossEntropyLoss(),
+    'confs_grid': nn.BCEWithLogitsLoss(reduction='none'),
+    'bboxes_grid': nn.MSELoss(reduction='none'),
+    'classes_grid': nn.CrossEntropyLoss(reduction='none'),
 }
 od.loop.train(model, tr, opt, losses, args.epochs)
 
