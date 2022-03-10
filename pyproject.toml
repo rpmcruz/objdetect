@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "pytorch",
+    "torch",
     "scikit-image",
     "scikit-learn",
     "setuptools>=42",
