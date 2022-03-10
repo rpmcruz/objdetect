@@ -162,7 +162,9 @@ ts = DataLoader(ts, 128, num_workers=2)
 
 inv_grid_transform = od.grid.BatchFromGridTransform(None, 0.1)
 inputs, preds = od.loop.evaluate(model, ts, inv_grid_transform)
+```
 
+```python
 import matplotlib.pyplot as plt
 for i in range(12):
     plt.subplot(2, 6, i+1)
