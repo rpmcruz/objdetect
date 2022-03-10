@@ -197,10 +197,15 @@ TO DO
 
 ### Anchors
 
-The framework also supports anchors. To compute the anchors, you may use our utility which uses KMeans. For example, if you want to find the best 9 anchors.
+The framework also supports anchors. To compute the anchors, you may use our utility which uses KMeans. For example, if you want to find the best 9 anchors:
 
 ```python
 tr = od.datasets.VOCDetection('data', 'train', False, None, None)
+```
+
+For debugging purposes, we can plot them:
+
+```python
 anchors = od.anchors.compute_clusters(tr, 9)
 od.plot.anchors(anchors)
 plt.show()
