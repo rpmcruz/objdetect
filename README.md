@@ -3,7 +3,7 @@ Light-weight and versatile one-stage object detection framework
 
 ## Introduction
 
-I am a post-doc at FEUP (University of Porto) working on perception for autonomous vehicle ([THEIA project](https://noticias.up.pt/u-porto-bosch-projeto-de-investigacao-28-milhoes-de-euros/)). I developed this one-stage object detection framework because existing frameworks, such as [detectron2](https://github.com/facebookresearch/detectron2) are either for two-stage models or are not versatile and simple enough to adapt for new models. At the very least, I hope this package is educational for someone learning object detection.
+I am a post-doc at FEUP (University of Porto) working on perception for autonomous driving ([THEIA project](https://noticias.up.pt/u-porto-bosch-projeto-de-investigacao-28-milhoes-de-euros/)). I developed this one-stage object detection framework because existing frameworks, such as [detectron2](https://github.com/facebookresearch/detectron2) are either for two-stage models or are not versatile and simple enough to adapt for new models. At the very least, I hope this package is educational for someone learning object detection.
 
 Let me know if you have success or need help to use this package for your project. -- [Ricardo Cruz](mailto:rpcruz@fe.up.pt)
 
@@ -15,7 +15,7 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 ## Usage
 
-The package is divided in the following components:
+The package is divided into the following components:
 
 * [`datasets`](#datasets): Toy datasets. Explore them to see how to plug a new dataset.
 * **`aug`**: Some data augmentation routines. You do not have to use them, you can easily use albumentations.
@@ -30,7 +30,7 @@ Each component is described below. But we also recommend that you have a look at
 
 ### datasets
 
-Each dataset must return a single "datum", which is a dictionary containing at least `image` and `bboxes`. Optionally, it can also contain `classes` and other attributes (such as `cos_angle` and `sin_angle` for Pixor). In this package, we heavily rely on dictionaries to bind the data inputs, the model outputs and the loss functions.
+Each dataset must return a single "datum", which is a dictionary containing at least `image` and `bboxes`. Optionally, it can also contain `classes` and other attributes (such as `cos_angle` and `sin_angle` for Pixor). In this package, we heavily rely on dictionaries to bind the data inputs, the model outputs, and the loss functions.
 
 Each bounding box uses the format `(xmin, ymin, xmax, ymax)` with each value normalized [0,1].
 
@@ -60,7 +60,7 @@ plt.show()
 
 ### grid
 
-In one-shot detection, the model receives the bounding boxes in the form of a grid. We provide routines to do this transformation and its inverse. Here we are going for a 8x8 grid and we are not going to use anchors. Please see example_train.py on how to use anchors. The shape of our grids are: `(N, Nf, Na, H, W)`, where `Nf` are the features of the grid (for example, 4 for the bounding box) and `Na` the number of anchors (for consistency, even if no anchors are used, this value is 1).
+In one-shot detection, the model receives the bounding boxes in the form of a grid. We provide routines to do this transformation and its inverse. Here we are going for an 8x8 grid and we are not going to use anchors. Please see example_train.py on how to use anchors. The shape of our grids is: `(N, Nf, Na, H, W)`, where `Nf` are the features of the grid (for example, 4 for the bounding box) and `Na` the number of anchors (for consistency, even if no anchors are used, this value is 1).
 
 ```python
 grid_transform = od.grid.ToGridTransform((8, 8), None)
