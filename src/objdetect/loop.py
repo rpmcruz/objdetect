@@ -8,7 +8,7 @@ dictionary, specifying which loss to use for each respective model output and
 input data.
 
 Please keep in mind that losses may not produce a scalar -- i.e., you must use
-reduce='none'.
+reduction='none'.
 '''
 
 def train(model, tr, opt, losses, epochs):
