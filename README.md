@@ -199,7 +199,7 @@ plt.show()
 
 ### metrics
 
-Our framework also has common the common AP metric based on precision-recall, but it is not well tested.
+Our framework also has the common AP metric based on precision-recall.
 
 ```python
 precision, recall = od.metrics.precision_recall_curve(preds['confs'], inputs['bboxes'], preds['bboxes'], 0.5)
