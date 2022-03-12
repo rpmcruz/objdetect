@@ -7,7 +7,7 @@ Albumentations or any other package. Our API should be similar in use to
 Albumentations, but simpler. Look at the bottom for an usage example.
 '''
 
-def Combine(*l):
+def Compose(*l):
     def f(**datum):
         for t in l:
             datum = t(**datum)
