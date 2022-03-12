@@ -8,7 +8,7 @@ dictionary, specifying which loss to use for each respective model output and
 input data.
 
 Please keep in mind that losses may not produce a scalar -- i.e., you must use
-reduce='none'.
+reduction='none'.
 '''
 
 def train(model, tr, opt, losses, epochs):
@@ -34,7 +34,7 @@ def train(model, tr, opt, losses, epochs):
                 _preds = preds[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
                 _inputs = data[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
                 loss_value = losses[key](_preds, _inputs)
-                assert loss_value.ndim > 0, f"Loss {key} cannot produce scalars (ensure you use reduce='none')"
+                assert loss_value.ndim > 0, f"Loss {key} cannot produce scalars (ensure you use reduction='none')"
                 if len(loss_value.shape) > 1:
                     loss_value = loss_value.sum(1)
                 loss += (coef * loss_value).mean()

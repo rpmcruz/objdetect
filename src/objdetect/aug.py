@@ -45,11 +45,11 @@ def RandomHflip():
         return {**args, 'image': image, 'bboxes': bboxes}
     return f
 
-def RandomBrightnessContrast(value=0.2):
+def RandomBrightnessContrast(brightness_value, contrast_value):
     def f(image, **args):
-        alpha = 1 - (np.random.rand()*value - value/2)
-        beta = np.random.rand()*value - value/2
-        image = np.clip(image*alpha + beta, 0, 1)
+        brightness = 1 - (np.random.rand()*brightness_value - brightness_value/2)
+        contrast = np.random.rand()*contrast_value - contrast_value/2
+        image = np.clip(image*brightness + contrast, 0, 1)
         return  {**args, 'image': image}
     return f
 
