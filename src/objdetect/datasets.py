@@ -1,6 +1,7 @@
 from torchvision import datasets
 from torch.utils.data import Dataset
 from skimage.io import imread
+from skimage.color import gray2rgb
 import numpy as np
 import json, os
 
@@ -70,6 +71,8 @@ class CocoDetection(Dataset):
     def __getitem__(self, i):
         img_id = self.image_ids[i]
         img = imread(os.path.join(self.images_dir, self.filenames[img_id]))
+        if len(img.shape) == 2:
+            img = gray2rgb(img)
         datum = {
             'image': img,
             'bboxes': self.bboxes[img_id],
