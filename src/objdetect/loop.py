@@ -5,13 +5,14 @@ import torch
 '''
 Convenience functions for the training and evaluation loops. Losses must be a
 dictionary, specifying which loss to use for each respective model output and
-input data.
+input data. At each epoch, calls scheduler.step(avg_loss) and stops if it
+returns True.
 
 Please keep in mind that losses may not produce a scalar -- i.e., you must use
 reduction='none'.
 '''
 
-def train(model, tr, opt, losses, epochs):
+def train(model, tr, opt, losses, epochs, scheduler=None):
     model.train()
     for epoch in range(epochs):
         print(f'* Epoch {epoch+1} / {epochs}')
@@ -44,6 +45,10 @@ def train(model, tr, opt, losses, epochs):
             avg_loss += float(loss) / len(tr)
         toc = time()
         print(f'- {toc-tic:.1f}s - Loss: {avg_loss}')
+        if scheduler:
+            if scheduler.step(avg_loss):
+                print('Stop due to scheduler')
+                break
 
 def evaluate(model, ts, inv_grid_transform):
     list_inputs = []
@@ -58,3 +63,15 @@ def evaluate(model, ts, inv_grid_transform):
         list_inputs += inv_grid_transform(data)
         list_preds += preds
     return list_inputs, list_preds
+
+class ConvergeStop:
+    def __init__(patience=10, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.last_loss = 999999
+        self.count = 0
+
+    def step(self, loss):
+        self.count = self.count+1 if loss+self.min_delta >= self.last_loss else 0
+        self.last_loss = loss
+        return self.count >= self.patience
