@@ -126,7 +126,7 @@ For data augmentation, you may use [Albumentations](https://albumentations.ai/) 
 ```python
 transform = od.aug.Compose(
     od.aug.Resize((282, 282)), od.aug.RandomCrop((256, 256)),
-    od.aug.RandomHflip(), od.aug.RandomBrightnessContrast()
+    od.aug.RandomHflip(), od.aug.RandomBrightnessContrast(0.1, 0)
 )
 tr = od.datasets.VOCDetection('data', 'train', download, transform, grid_transform)
 ```
