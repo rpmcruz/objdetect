@@ -73,7 +73,7 @@ class CocoDetection(Dataset):
         datum = {
             'image': img,
             'bboxes': self.bboxes[img_id],
-            'classes': self.classes[img_id]
+            'classes': np.array(self.classes[img_id], np.int64)
         }
         if self.od_transforms: 
             datum = self.od_transforms(**datum)
