@@ -65,7 +65,7 @@ class CocoDetection(Dataset):
         self.image_ids = list(self.bboxes.keys())
 
     def __len__(self):
-        return len(self.annotations)
+        return len(self.image_ids)
 
     def __getitem__(self, i):
         img_id = self.image_ids[i]
