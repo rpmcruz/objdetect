@@ -137,15 +137,14 @@ We provide convenience functions for training. Losses must be a dictionary with 
 
 ```python
 from torch.utils.data import DataLoader
-from torch import nn
 import torch
 
 tr = DataLoader(tr, 128, True, num_workers=2)
 opt = torch.optim.Adam(model.parameters())
 losses = {
-    'confs_grid': nn.BCEWithLogitsLoss(reduction='none'),
-    'bboxes_grid': nn.MSELoss(reduction='none'),
-    'classes_grid': nn.CrossEntropyLoss(reduction='none'),
+    'confs_grid': torch.nn.BCEWithLogitsLoss(reduction='none'),
+    'bboxes_grid': torch.nn.MSELoss(reduction='none'),
+    'classes_grid': torch.nn.CrossEntropyLoss(reduction='none'),
 }
 od.loop.train(model, tr, opt, losses, 100)
 torch.save(model, 'model.pth')
