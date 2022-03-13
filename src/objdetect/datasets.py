@@ -1,6 +1,8 @@
 from torchvision import datasets
 from torch.utils.data import Dataset
+from skimage.io import imread
 import numpy as np
+import json, os
 
 '''
 Wrapper to common datasets. Since there can be several variables associated to
@@ -37,7 +39,7 @@ class VOCDetection(datasets.VOCDetection):
             datum = self.grid_transform(datum)
         return datum
 
-class CocoDetection(data.Dataset):
+class CocoDetection(Dataset):
     def __init__(self, images_dir, ann_file, transforms, grid_transform):
         self.od_transforms = transforms
         self.grid_transform = grid_transform
