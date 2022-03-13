@@ -37,6 +37,48 @@ class VOCDetection(datasets.VOCDetection):
             datum = self.grid_transform(datum)
         return datum
 
+class CocoDetection(data.Dataset):
+    def __init__(self, images_dir, ann_file, transforms, grid_transform):
+        self.od_transforms = transforms
+        self.grid_transform = grid_transform
+        self.images_dir = images_dir
+        self.bboxes = {}
+        self.classes = {}
+        anns = json.load(open(ann_file))
+        sizes = {img['id']: (img['width'], img['height']) for img in anns['images']}
+        # the original ids have some holes, so convert them to 0..K classes
+        orig_labels = {c['id']: c['name'] for c in anns['categories']}
+        self.labels = list(orig_labels.values())
+        for ann in anns['annotations']:
+            img_id = ann['image_id']
+            bbox = ann['bbox']
+            class_ = self.labels.index(orig_labels[ann['category_id']])
+            size = sizes[img_id]
+            self.bboxes.setdefault(img_id, []).append((
+                bbox[0]/size[0], bbox[1]/size[1],
+                (bbox[0]+bbox[2])/size[0], (bbox[1]+bbox[3])/size[1]
+            ))
+            self.classes.setdefault(img_id, []).append(class_)
+        self.filenames = {img['id']: img['file_name'] for img in anns['images']}
+        self.image_ids = list(self.bboxes.keys())
+
+    def __len__(self):
+        return len(self.annotations)
+
+    def __getitem__(self, i):
+        img_id = self.image_ids[i]
+        img = imread(os.path.join(self.images_dir, self.filenames[img_id]))
+        datum = {
+            'image': img,
+            'bboxes': self.bboxes[img_id],
+            'classes': self.classes[img_id]
+        }
+        if self.od_transforms: 
+            datum = self.od_transforms(**datum)
+        if self.grid_transform:
+            datum = self.grid_transform(datum)
+        return datum
+
 class DebugDataset(Dataset):  # used to debug models (loads only N images)
     def __init__(self, ds, N):
         super().__init__()
