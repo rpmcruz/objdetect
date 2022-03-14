@@ -65,7 +65,7 @@ def evaluate(model, ts, inv_grid_transform):
     return list_inputs, list_preds
 
 class ConvergeStop:
-    def __init__(patience=10, min_delta=0):
+    def __init__(self, patience=10, min_delta=0):
         self.patience = patience
         self.min_delta = min_delta
         self.last_loss = 999999
