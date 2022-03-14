@@ -50,7 +50,7 @@ def train(model, tr, opt, losses, epochs, scheduler=None):
                 print('Stop due to scheduler')
                 break
 
-def evaluate(model, ts, inv_grid_transform):
+def evaluate(model, ts, grid_transform):
     list_inputs = []
     list_preds = []
     model.eval()
@@ -59,8 +59,8 @@ def evaluate(model, ts, inv_grid_transform):
         with torch.no_grad():
             preds = model(X)
         preds = {k: v.detach().cpu().numpy() for k, v in preds.items()}
-        preds = inv_grid_transform(preds)
-        list_inputs += inv_grid_transform(data)
+        preds = grid_transform.inv(preds)
+        list_inputs += grid_transform.inv(data)
         list_preds += preds
     return list_inputs, list_preds
 

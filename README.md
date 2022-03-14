@@ -60,10 +60,10 @@ plt.show()
 
 ### grid
 
-In one-shot detection, the model receives the bounding boxes in the form of a grid. We provide routines to do this transformation and its inverse. Here we are going for an 8x8 grid and we are not going to use anchors. Please see example_train.py on how to use anchors. The shape of our grids is: `(N, Nf, Na, H, W)`, where `Nf` are the features of the grid (for example, 4 for the bounding box) and `Na` the number of anchors (for consistency, even if no anchors are used, this value is 1).
+In one-shot detection, the model receives the bounding boxes in the form of a grid. We provide routines to do this transformation and its inverse. Here we are going for an 8x8 grid and we are not going to use anchors. Please see `train_coco.py` on how to use anchors. The shape of our grids is: `(N, Nf, Na, H, W)`, where `Nf` are the features of the grid (for example, 4 for the bounding box) and `Na` the number of anchors (for consistency, even if no anchors are used, this value is 1).
 
 ```python
-grid_transform = od.grid.ToGridTransform((8, 8), None)
+grid_transform = od.grid.Transform((8, 8), None, ['classes'])
 datum = grid_transform(datum)
 print(datum.keys())
 ```
@@ -92,9 +92,8 @@ plt.show()
 The grid transformation is used for training and then you invert the grid back before plotting or applying metrics. The grid transformation uses the bounding-box format `(xc, yc, log(w), log(h))`, as done [in yolo](https://arxiv.org/abs/1804.02767) and other papers. (Notice that the inversion function receives images in batch format since it is typically used on the network outputs, and returns a list with each datum.)
 
 ```python
-inv_grid_transform = od.grid.BatchFromGridTransform(None)
 batch = {k: v[None] for k, v in datum.items()}
-inv_datum = inv_grid_transform(batch)[0]
+inv_datum = grid_transform.inv(batch)[0]
 
 plt.imshow(datum['image'])
 od.plot.bboxes_with_classes(datum['image'], inv_datum['bboxes'], inv_datum['classes'], labels, 'blue')
@@ -121,7 +120,7 @@ The values in <span style="color:red">red</span> are the anchors (more about tha
 
 ### aug
 
-For data augmentation, you may use [Albumentations](https://albumentations.ai/) or our routines or another package. We provide some basic augmentation functions. The API is also based on dictionaries and should be compatible with Albumentations. In our `example_train.py`, we use Albumentations.
+For data augmentation, you may use [Albumentations](https://albumentations.ai/) or our routines or another package. We provide some basic augmentation functions. The API is also based on dictionaries and should be compatible with Albumentations.
 
 ```python
 transform = od.aug.Compose(
@@ -158,9 +157,7 @@ After the model has been trained, we can predict the objects:
 transform = od.aug.Resize((282, 282))
 ts = od.datasets.VOCDetection('data', 'val', download, transform, grid_transform)
 ts = DataLoader(ts, 128, num_workers=2)
-
-inv_grid_transform = od.grid.BatchFromGridTransform(None, 0.1)
-inputs, preds = od.loop.evaluate(model, ts, inv_grid_transform)
+inputs, preds = od.loop.evaluate(model, ts, grid_transform)
 ```
 
 ```python
