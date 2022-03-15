@@ -84,6 +84,31 @@ class CocoDetection(Dataset):
             datum = self.grid_transform(datum)
         return datum
 
+class KITTI(Dataset):
+    labels = ['Car', 'Cyclist', 'Pedestrian', 'Person_sitting', 'Tram', 'Truck', 'Van', 'Misc', 'DontCare']
+
+    def __init__(self, root, transforms, grid_transform, exclude_labels=['Misc', 'DontCare']):
+        self.labels = [l for l in self.labels if l not in exclude_labels]
+        self.root = root
+        self.files = os.listdir(os.path.join(self.root, 'training', 'image_2'))
+        self.od_transforms = transforms
+        self.grid_transform = grid_transform
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, i):
+        filename = self.files[i]
+        img = imread(os.path.join(self.root, 'training', 'image_2', filename))
+        lines = [l.split() for l in open(os.path.join(self.root, 'training', 'label_2', filename[:-3] + 'txt')).readlines()]
+        lines = [l for l in lines if l[0] in self.labels]
+        bboxes = [(
+            float(l[4])/img.shape[1], float(l[5])/img.shape[0],
+            float(l[6])/img.shape[1], float(l[7])/img.shape[0]
+        ) for l in lines]
+        classes = [self.labels.index(l[0]) for l in lines]
+        return {'image': img, 'bboxes': bboxes, 'classes': classes}
+
 class DebugDataset(Dataset):  # used to debug models (loads only N images)
     def __init__(self, ds, N):
         super().__init__()
@@ -100,12 +125,19 @@ if __name__ == '__main__':  # debug a dataset
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset')
-    parser.add_argument('--download', action='store_true')
     args = parser.parse_args()
+    if args.dataset == 'voc':
+        ds = VOCDetection('data', 'train', True, None, None)
+    elif args.dataset == 'coco':
+        ds = CocoDetection('/data/coco/train2017', '/data/coco/annotations/instances_train2017.json', None, None)
+    elif args.dataset == 'kitti':
+        ds = KITTI('/data/kitti/object', None, None, ['DontCare'])
     import matplotlib.pyplot as plt
     import plot
-    ds = globals()[args.dataset]('data', 'train', args.download, None, None)
-    datum = ds[0]
-    plt.imshow(datum['image'])
-    plot.bboxes(datum['image'], datum['bboxes'])
-    plt.show()
+    labels = ds.labels if hasattr(ds, 'labels') else None
+    for i in range(len(ds)):
+        datum = ds[i]
+        plt.imshow(datum['image'])
+        plot.bboxes_with_classes(datum['image'], datum['bboxes'], datum['classes'], labels)
+        plt.title(f'{i+1} / {len(ds)}')
+        plt.show()
