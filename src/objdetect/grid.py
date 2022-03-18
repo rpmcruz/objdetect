@@ -25,101 +25,111 @@ class Transform:
         self.extra_keys = extra_keys
 
     def __call__(self, datum):
-        n_anchors = 1 if self.anchors is None else len(self.anchors)
-        H_grid = np.zeros((1, n_anchors, *self.grid_size), np.float32)
-        B_grid = np.zeros((4, n_anchors, *self.grid_size), np.float32)
-        ret_datum = {'image': datum['image'], 'confs_grid': H_grid,
-            'bboxes_grid': B_grid}
-
-        # convert also any key that is in extra_keys. other keys, just pass them
-        for key in datum.keys() - {'image', 'confs', 'bboxes'}:
-            if key in self.extra_keys:
-                ret_datum[key + '_grid'] = np.zeros((1, n_anchors, *self.grid_size), datum[key].dtype)
-            else:
-                ret_datum[key] = datum[key]
-
-        for bi, b in enumerate(datum['bboxes']):
-            xc = (b[0]+b[2]) / 2
-            yc = (b[1]+b[3]) / 2
-            if self.anchors is None:
-                ai = 0
-                size = (1, 1)
-            else:  # which anchor?
-                ai = ((self.anchors[:, 0]-xc)**2 + (self.anchors[:, 1]-yc)**2).mean(0).argmin()
-                size = self.anchors[ai]
-            gx = int(xc // (1/self.grid_size[0]))
-            gy = int(yc // (1/self.grid_size[1]))
-            offset_x = (xc % (1/self.grid_size[0])) * self.grid_size[0]
-            offset_y = (yc % (1/self.grid_size[1])) * self.grid_size[1]
-            H_grid[0, ai, gy, gx] = 1
-            B_grid[0, ai, gy, gx] = offset_x
-            B_grid[1, ai, gy, gx] = offset_y
-            B_grid[2, ai, gy, gx] = np.log((b[2]-b[0]) / size[0])
-            B_grid[3, ai, gy, gx] = np.log((b[3]-b[1]) / size[1])
-            for key in self.extra_keys:
-                ret_datum[key + '_grid'][0, ai, gy, gx] = datum[key][bi]
-        return ret_datum
+        return grid_transform(datum, self.grid_size, self.anchors, self.extra_keys)
 
     def inv(self, data, confidence_threshold=0.5):
         # unlike the previous method, this receives a batch, not a single datum
-        assert 'confs_grid' in data, 'Must contain at least one grid'
-        if self.anchors is None:
-            self.anchors = [(1, 1)]
-        cell_size = (1 / self.grid_size[0], 1 / self.grid_size[1])
-        ret = []
-        extra_keys = data.keys() - {'bboxes_grid', 'confs_grid'}
-        for i in range(len(data['confs_grid'])):
-            bboxes = []
-            confs = []
-            ret_datum = {'bboxes': bboxes, 'confs': confs}
+        return inv_grid_transform(data, self.grid_size, self.anchors, confidence_threshold)
 
-            # convert also any key that is in extra_keys. other keys, just pass them
-            for key in extra_keys:
-                if key.endswith('_grid'):
-                    ret_datum[key[:-5]] = []
-                else:
-                    ret_datum[key] = data[key][i]
+# in the future, we may want to speed-up this code by using numba
+# unfortunately, numba does not support python dictionaries
 
-            ret.append(ret_datum)
-            for gx in range(self.grid_size[0]):
-                for gy in range(self.grid_size[1]):
-                    for ai, anchor in enumerate(self.anchors):
-                        # maybe we should multiply by class confidence here too
-                        conf = data['confs_grid'][i, 0, ai, gy, gx]
-                        if conf >= confidence_threshold:
-                            offset_x, offset_y, log_w, log_h = data['bboxes_grid'][i, :, ai, gy, gx]
-                            xc = (gx+offset_x)*cell_size[0]
-                            yc = (gy+offset_y)*cell_size[1]
-                            w = anchor[0]*np.exp(log_w)
-                            h = anchor[1]*np.exp(log_h)
-                            xmin = xc - w/2
-                            ymin = yc - h/2
-                            xmax = xmin + w
-                            ymax = ymin + h
-                            bboxes.append((xmin, ymin, xmax, ymax))
-                            if 'classes_grid' in data:
-                                # classes conversion is a special case
-                                if data['classes_grid'].shape[1] == 1:
-                                    _class = data['classes_grid'][i, 0, ai, gy, gx]
-                                else:
-                                    pclass = data['classes_grid'][i, :, ai, gy, gx].max()
-                                    conf *= pclass
-                                    _class = data['classes_grid'][i, :, ai, gy, gx].argmax()
-                                ret_datum['classes'].append(int(_class))
-                            for key in extra_keys:
-                                if key.endswith('_grid') and key != 'classes_grid':
-                                    ret_datum[key[:-5]].append(data[key][i, 0, ai, gy, gx])
-                            confs.append(conf)
-        return ret
+def grid_transform(datum, grid_size, anchors, extra_keys):
+    n_anchors = 1 if anchors is None else len(anchors)
+    H_grid = np.zeros((1, n_anchors, *grid_size), np.float32)
+    B_grid = np.zeros((4, n_anchors, *grid_size), np.float32)
+    ret_datum = {'image': datum['image'], 'confs_grid': H_grid,
+        'bboxes_grid': B_grid}
+
+    # convert also any key that is in extra_keys. other keys, just pass them
+    for key in datum.keys() - {'image', 'confs', 'bboxes'}:
+        if key in extra_keys:
+            ret_datum[key + '_grid'] = np.zeros((1, n_anchors, *grid_size), datum[key].dtype)
+        else:
+            ret_datum[key] = datum[key]
+
+    for bi, b in enumerate(datum['bboxes']):
+        xc = (b[0]+b[2]) / 2
+        yc = (b[1]+b[3]) / 2
+        if anchors is None:
+            ai = 0
+            size = (1, 1)
+        else:  # which anchor?
+            ai = ((anchors[:, 0]-xc)**2 + (anchors[:, 1]-yc)**2).mean(0).argmin()
+            size = anchors[ai]
+        gx = int(xc // (1/grid_size[0]))
+        gy = int(yc // (1/grid_size[1]))
+        offset_x = (xc % (1/grid_size[0])) * grid_size[0]
+        offset_y = (yc % (1/grid_size[1])) * grid_size[1]
+        H_grid[0, ai, gy, gx] = 1
+        B_grid[0, ai, gy, gx] = offset_x
+        B_grid[1, ai, gy, gx] = offset_y
+        B_grid[2, ai, gy, gx] = np.log((b[2]-b[0]) / size[0])
+        B_grid[3, ai, gy, gx] = np.log((b[3]-b[1]) / size[1])
+        for key in extra_keys:
+            ret_datum[key + '_grid'][0, ai, gy, gx] = datum[key][bi]
+    return ret_datum
+
+def inv_grid_transform(data, grid_size, anchors, confidence_threshold):
+    # unlike the previous method, this receives a batch, not a single datum
+    assert 'confs_grid' in data, 'Must contain at least one grid'
+    if anchors is None:
+        anchors = [(1, 1)]
+    cell_size = (1 / grid_size[0], 1 / grid_size[1])
+    ret = []
+    extra_keys = data.keys() - {'bboxes_grid', 'confs_grid'}
+    for i in range(len(data['confs_grid'])):
+        bboxes = []
+        confs = []
+        ret_datum = {'bboxes': bboxes, 'confs': confs}
+
+        # convert also any key that is in extra_keys. other keys, just pass them
+        for key in extra_keys:
+            if key.endswith('_grid'):
+                ret_datum[key[:-5]] = []
+            else:
+                ret_datum[key] = data[key][i]
+
+        ret.append(ret_datum)
+        for gx in range(grid_size[0]):
+            for gy in range(grid_size[1]):
+                for ai, anchor in enumerate(anchors):
+                    # maybe we should multiply by class confidence here too
+                    conf = data['confs_grid'][i, 0, ai, gy, gx]
+                    if conf >= confidence_threshold:
+                        offset_x, offset_y, log_w, log_h = data['bboxes_grid'][i, :, ai, gy, gx]
+                        xc = (gx+offset_x)*cell_size[0]
+                        yc = (gy+offset_y)*cell_size[1]
+                        w = anchor[0]*np.exp(log_w)
+                        h = anchor[1]*np.exp(log_h)
+                        xmin = xc - w/2
+                        ymin = yc - h/2
+                        xmax = xmin + w
+                        ymax = ymin + h
+                        bboxes.append((xmin, ymin, xmax, ymax))
+                        if 'classes_grid' in data:
+                            # classes conversion is a special case
+                            if data['classes_grid'].shape[1] == 1:
+                                _class = data['classes_grid'][i, 0, ai, gy, gx]
+                            else:
+                                pclass = data['classes_grid'][i, :, ai, gy, gx].max()
+                                conf *= pclass
+                                _class = data['classes_grid'][i, :, ai, gy, gx].argmax()
+                            ret_datum['classes'].append(int(_class))
+                        for key in extra_keys:
+                            if key.endswith('_grid') and key != 'classes_grid':
+                                ret_datum[key[:-5]].append(data[key][i, 0, ai, gy, gx])
+                        confs.append(conf)
+    return ret
 
 if __name__ == '__main__':  # debug: apply a transform and an inverse
     import datasets, plot
     tr = datasets.VOCDetection('../../data', 'train', False, None, None)
     datum = tr[0]
-    grid_transform = Transform((8, 8), None, ['classes'])
-    datum = grid_transform(datum)
+    t = Transform((8, 8), None, ['classes'])
+    datum = t(datum)
     batch = {k: v[None] for k, v in datum.items()}
-    inv_datum = grid_transform.inv(batch)[0]
+    inv_datum = t.inv(batch)[0]
     import matplotlib.pyplot as plt
     plt.imshow(datum['image'])
     plot.bboxes_with_classes(datum['image'], inv_datum['bboxes'], inv_datum['classes'], tr.labels, 'blue')
