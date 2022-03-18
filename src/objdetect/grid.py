@@ -67,14 +67,15 @@ class Transform:
             self.anchors = [(1, 1)]
         cell_size = (1 / self.grid_size[0], 1 / self.grid_size[1])
         ret = []
+        extra_keys = data.keys() - {'bboxes_grid', 'confs_grid'}
         for i in range(len(data['confs_grid'])):
             bboxes = []
             confs = []
             ret_datum = {'bboxes': bboxes, 'confs': confs}
 
             # convert also any key that is in extra_keys. other keys, just pass them
-            for key in data.keys() - {'bboxes_grid', 'confs_grid'}:
-                if key in self.extra_keys:
+            for key in extra_keys:
+                if key.endswith('_grid'):
                     ret_datum[key[:-5]] = []
                 else:
                     ret_datum[key] = data[key][i]
@@ -105,7 +106,21 @@ class Transform:
                                     conf *= pclass
                                     _class = data['classes_grid'][i, :, ai, gy, gx].argmax()
                                 ret_datum['classes'].append(int(_class))
-                            for extra_key in extra_keys - {'classes_grid'}:
-                                ret_datum[k[:-5]].append(data[k][i, 0, ai, gy, gx])
+                            for key in extra_keys:
+                                if key.endswith('_grid') and key != 'classes_grid':
+                                    ret_datum[key[:-5]].append(data[key][i, 0, ai, gy, gx])
                             confs.append(conf)
         return ret
+
+if __name__ == '__main__':  # debug: apply a transform and an inverse
+    import datasets, plot
+    tr = datasets.VOCDetection('../../data', 'train', False, None, None)
+    datum = tr[0]
+    grid_transform = Transform((8, 8), None, ['classes'])
+    datum = grid_transform(datum)
+    batch = {k: v[None] for k, v in datum.items()}
+    inv_datum = grid_transform.inv(batch)[0]
+    import matplotlib.pyplot as plt
+    plt.imshow(datum['image'])
+    plot.bboxes_with_classes(datum['image'], inv_datum['bboxes'], inv_datum['classes'], tr.labels, 'blue')
+    plt.show()
