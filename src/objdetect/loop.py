@@ -65,13 +65,16 @@ def evaluate(model, ts, grid_transform):
     return list_inputs, list_preds
 
 class ConvergeStop:
-    def __init__(self, patience=10, min_delta=0):
+    def __init__(self, patience=10):
         self.patience = patience
-        self.min_delta = min_delta
         self.min_loss = float('inf')
         self.count = 0
 
     def step(self, loss):
-        self.count = self.count+1 if loss+self.min_delta >= self.min_loss else 0
-        self.min_loss = min(self.min_loss, loss)
+        if loss < self.min_loss:
+            print('-> new loss minimum:', loss)
+            self.min_loss = loss
+            self.count += 1
+        else:
+            self.count = 0
         return self.count >= self.patience
