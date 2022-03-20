@@ -230,3 +230,14 @@ plt.show()
 ```
 
 ![Best anchors found for Pascal VOC](imgs/anchors.png)
+
+## Citing objdetect
+
+```
+@misc{objdetect,
+  author = {Ricardo Cruz},
+  title = {{ObjDetect package}},
+  howpublished = {\url{https://github.com/rpmcruz/objdetect}},
+  year = {2022}
+}
+```
