@@ -71,9 +71,7 @@ class ConvergeStop:
         self.count = 0
 
     def step(self, loss):
-        print('converge stop loss:', loss, self.min_loss)
         if loss < self.min_loss:
-            print('-> new loss minimum:', loss)
             self.min_loss = loss
             self.count = 0
         else:
