@@ -69,7 +69,6 @@ class HeadWithClasses(Head):
         y = y.view(y.shape[0], self.n_classes, self.n_anchors, y.shape[2], y.shape[3])
         if not self.training:
             y = F.softmax(y, 1)
-            print(y.shape)
         outputs['classes_grid'] = y
         return outputs
 
