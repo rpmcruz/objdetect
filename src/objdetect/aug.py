@@ -62,14 +62,6 @@ def VggNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
         return {**args, 'image': image}
     return f
 
-def VggReverse(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
-    mean = np.asarray(mean, np.float32)
-    std = np.asarray(std, np.float32)
-    def f(image, **args):
-        image = image*std + mean
-        return {**args, 'image': image}
-    return f
-
 if __name__ == '__main__':  # debug
     import matplotlib.pyplot as plt
     import datasets, plot

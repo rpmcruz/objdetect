@@ -35,6 +35,12 @@ def anchors(anchors, ncols=6):  # debug purposes
         plt.xlim(0, 1)
         plt.ylim(0, 1)
 
+def reverse_normalization(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    mean = np.asarray(mean, np.float32)
+    std = np.asarray(std, np.float32)
+    image = image*std + mean
+    return image
+
 def bboxes(image, bboxes, color='r', ls='-'):
     image_size = image.shape[1::-1]
     for xmin, ymin, xmax, ymax in bboxes:
