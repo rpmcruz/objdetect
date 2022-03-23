@@ -52,7 +52,7 @@ Plot the datum to see if everything looks good:
 ```python
 import matplotlib.pyplot as plt
 plt.imshow(datum['image'])
-od.plot.bboxes_with_classes(datum['image'], datum['bboxes'], datum['classes'], labels)
+od.plot.datum(plt.gca(), datum, labels)
 plt.show()
 ```
 
@@ -96,7 +96,7 @@ batch = {k: v[None] for k, v in datum.items()}
 inv_datum = grid_transform.inv(batch)[0]
 
 plt.imshow(datum['image'])
-od.plot.bboxes_with_classes(datum['image'], inv_datum['bboxes'], inv_datum['classes'], labels, 'blue')
+od.plot.datum(plt.gca(), inv_datum, labels, 'b')
 plt.show()
 ```
 
@@ -165,8 +165,8 @@ import matplotlib.pyplot as plt
 for i in range(12):
     plt.subplot(2, 6, i+1)
     plt.imshow(inputs[i]['image'])
-    od.plot.bboxes_with_classes(inputs[i]['image'], inputs[i]['bboxes'], inputs[i]['classes'], labels, 'blue')
-    od.plot.bboxes_with_classes(inputs[i]['image'], preds[i]['bboxes'], preds[i]['classes'], labels, 'green', '--')
+    od.plot.datum(plt.gca(), inputs[i], labels, 'b')
+    od.plot.datum(plt.gca(), preds[i], labels, 'g', '--')
 plt.show()
 ```
 
@@ -186,8 +186,8 @@ import matplotlib.pyplot as plt
 for i in range(12):
     plt.subplot(2, 6, i+1)
     plt.imshow(inputs[i]['image'])
-    od.plot.bboxes_with_classes(inputs[i]['image'], inputs[i]['bboxes'], inputs[i]['classes'], labels, 'blue')
-    od.plot.bboxes_with_classes(inputs[i]['image'], preds[i]['bboxes'], preds[i]['classes'], labels, 'green', '--')
+    od.plot.datum(plt.gca(), inputs[i], labels, 'r', '-')
+    od.plot.datum(plt.gca(), preds[i], labels, 'g', '--')
 plt.show()
 ```
 

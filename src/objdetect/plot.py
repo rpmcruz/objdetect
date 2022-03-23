@@ -35,28 +35,19 @@ def anchors(anchors, ncols=6):  # debug purposes
         plt.xlim(0, 1)
         plt.ylim(0, 1)
 
-def bboxes(image, bboxes, color='r', ls='-'):
-    image_size = image.shape[1::-1]
-    for xmin, ymin, xmax, ymax in bboxes:
-        plt.gca().add_patch(patches.Rectangle(
-            (xmin*image_size[0], ymin*image_size[1]),
-            (xmax-xmin)*image_size[0], (ymax-ymin)*image_size[1],
-            edgecolor=color, facecolor='none', ls=ls))
-
-def bboxes_with_classes(image, bboxes, classes, labels, color='r', ls='-'):
-    image_size = image.shape[1::-1]
-    for (xmin, ymin, xmax, ymax), label in zip(bboxes, classes):
-        plt.gca().add_patch(patches.Rectangle(
-            (xmin*image_size[0], ymin*image_size[1]),
-            (xmax-xmin)*image_size[0], (ymax-ymin)*image_size[1],
-            edgecolor=color, facecolor='none', ls=ls))
-        s = labels[label] if labels else str(label)
-        plt.text(xmin*image_size[0], ymin*image_size[1], s, c=color)
-
-def bboxes_with_angles(image, bboxes, angles, color='r', ls='-'):
-    image_size = image.shape[1::-1]
-    for (xmin, ymin, xmax, ymax), angle in zip(bboxes, angles):
-        plt.gca().add_patch(patches.Rectangle(
-            (xmin*image_size[0], ymin*image_size[1]),
-            (xmax-xmin)*image_size[0], (ymax-ymin)*image_size[1],
-            angle, edgecolor=color, facecolor='none', ls=ls))
+def datum(ax, datum, labels=None, color='r', linestyle='-'):
+    w = int(max(ax.get_xlim()))
+    h = int(max(ax.get_ylim()))
+    for i, (xmin, ymin, xmax, ymax) in enumerate(datum['bboxes']):
+        angle = datum['angles'][i] if 'angles' in datum else 0
+        ax.add_patch(patches.Rectangle(
+            (xmin*w, ymin*h), (xmax-xmin)*w, (ymax-ymin)*h, angle,
+            edgecolor=color, facecolor='none', linestyle=linestyle))
+        text = []
+        if 'classes' in datum:
+            label = datum['classes'][i]
+            text.append(labels[label] if labels else str(label))
+        if 'confs' in datum:
+            text.append('%d%%' % (datum['confs'][i]*100))
+        if text:
+            ax.text(xmin*w, ymin*h, ' '.join(text), c=color)
