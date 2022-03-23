@@ -51,3 +51,9 @@ def datum(ax, datum, labels=None, color='r', linestyle='-'):
             text.append('%d%%' % (datum['confs'][i]*100))
         if text:
             ax.text(xmin*w, ymin*h, ' '.join(text), c=color)
+
+def reverse_normalization(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    mean = np.asarray(mean, np.float32)
+    std = np.asarray(std, np.float32)
+    image = image*std + mean
+    return image
