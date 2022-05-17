@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>losses API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="PyTorch already comes with most useful losses, such as MSE, BCE and sigmoid_focal_loss, but this provides other losses such as UnitBox losses." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,14 +22,19 @@
 <h1 class="title">Module <code>losses</code></h1>
 </header>
 <section id="section-intro">
+<p>PyTorch already comes with most useful losses, such as MSE, BCE and sigmoid_focal_loss, but this provides other losses such as UnitBox losses.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import torch
+<pre><code class="python">&#39;&#39;&#39;
+PyTorch already comes with most useful losses, such as MSE, BCE and sigmoid_focal_loss, but this provides other losses such as UnitBox losses.
+&#39;&#39;&#39;
+
+import torch
 
 def convert_rel2abs(bboxes):
-    # similar to inv_grid.InvRelBboxes
+    &#39;&#39;&#39;Similar to `inv_grid.InvRelBboxes`. Converts relative bounding boxes to absolute bounding boxes.&#39;&#39;&#39;
     _, _, h, w = bboxes.shape
     yy = torch.linspace(0, h, 1, device=bboxes.device)
     xx = torch.linspace(0, w, 1, device=bboxes.device)
@@ -41,11 +46,13 @@ def convert_rel2abs(bboxes):
     return bboxes_offset
 
 def ConvertRel2Abs(loss_fn):
+    &#39;&#39;&#39;This is useful because some losses require the bounding boxes to be absolute.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
         return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
     return f
 
 def ValidBboxes(bboxes):
+    &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
     return torch.stack((
         torch.minimum(bboxes[:, 0], bboxes[:, 2]),
         torch.minimum(bboxes[:, 1], bboxes[:, 3]),
@@ -54,6 +61,7 @@ def ValidBboxes(bboxes):
     ), 1)
 
 def GIoU(do_validation):
+    &#39;&#39;&#39;Implements the [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
@@ -90,12 +98,13 @@ def GIoU(do_validation):
 <span>def <span class="ident">ConvertRel2Abs</span></span>(<span>loss_fn)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>This is useful because some losses require the bounding boxes to be absolute.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def ConvertRel2Abs(loss_fn):
+    &#39;&#39;&#39;This is useful because some losses require the bounding boxes to be absolute.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
         return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
     return f</code></pre>
@@ -105,12 +114,13 @@ def GIoU(do_validation):
 <span>def <span class="ident">GIoU</span></span>(<span>do_validation)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Implements the <a href="https://giou.stanford.edu/">Generalized Intersection over Union paper</a>, used by papers such as FCOS.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def GIoU(do_validation):
+    &#39;&#39;&#39;Implements the [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
@@ -140,12 +150,13 @@ def GIoU(do_validation):
 <span>def <span class="ident">ValidBboxes</span></span>(<span>bboxes)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def ValidBboxes(bboxes):
+    &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
     return torch.stack((
         torch.minimum(bboxes[:, 0], bboxes[:, 2]),
         torch.minimum(bboxes[:, 1], bboxes[:, 3]),
@@ -158,13 +169,13 @@ def GIoU(do_validation):
 <span>def <span class="ident">convert_rel2abs</span></span>(<span>bboxes)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Similar to <code><a title="inv_grid.InvRelBboxes" href="inv_grid.html#inv_grid.InvRelBboxes">InvRelBboxes()</a></code>. Converts relative bounding boxes to absolute bounding boxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def convert_rel2abs(bboxes):
-    # similar to inv_grid.InvRelBboxes
+    &#39;&#39;&#39;Similar to `inv_grid.InvRelBboxes`. Converts relative bounding boxes to absolute bounding boxes.&#39;&#39;&#39;
     _, _, h, w = bboxes.shape
     yy = torch.linspace(0, h, 1, device=bboxes.device)
     xx = torch.linspace(0, w, 1, device=bboxes.device)

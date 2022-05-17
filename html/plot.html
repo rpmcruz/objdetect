@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>plot API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Useful plotting methods." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,25 +22,33 @@
 <h1 class="title">Module <code>plot</code></h1>
 </header>
 <section id="section-intro">
+<p>Useful plotting methods.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import matplotlib.pyplot as plt
+<pre><code class="python">&#39;&#39;&#39;
+Useful plotting methods.
+&#39;&#39;&#39;
+
+import matplotlib.pyplot as plt
 from matplotlib import lines, patches, colors
 import numpy as np
 from skimage.transform import resize
 
 def grid_lines(image, h, w):
+    &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
     H, W, _ = image.shape
     plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, linewidth=0.5)
     plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, linewidth=0.5)
 
 def grid_bools(image, grid):
+    &#39;&#39;&#39;Draws a grid boolean matrix, such as the hasobjs grid.&#39;&#39;&#39;
     H, W, _ = image.shape
     plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap([&#39;green&#39;]))
 
 def grid_text(image, grid):
+    &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
     H, W, _ = image.shape
     h, w = grid.shape
     for y in range(h):
@@ -48,6 +56,7 @@ def grid_text(image, grid):
             plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(grid[y, x]), c=&#39;blue&#39;)
 
 def bboxes(image, bboxes):
+    &#39;&#39;&#39;Draws a list of bounding boxes.&#39;&#39;&#39;
     H, W, _ = image.shape
     for xmin, ymin, xmax, ymax in bboxes:
         plt.gca().add_patch(patches.Rectangle(
@@ -55,6 +64,7 @@ def bboxes(image, bboxes):
             edgecolor=&#39;blue&#39;, facecolor=&#39;none&#39;))
 
 def classes(image, bboxes, classes, labels=None):
+    &#39;&#39;&#39;Draws a list of classes captions above the bounding box. If a `labels` list is provided then the respective label will be drawn, rather than the integer.&#39;&#39;&#39;
     H, W, _ = image.shape
     for (xmin, ymin, xmax, ymax), klass in zip(bboxes, classes):
         s = labels[klass] if labels else klass
@@ -72,12 +82,13 @@ def classes(image, bboxes, classes, labels=None):
 <span>def <span class="ident">bboxes</span></span>(<span>image, bboxes)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Draws a list of bounding boxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bboxes(image, bboxes):
+    &#39;&#39;&#39;Draws a list of bounding boxes.&#39;&#39;&#39;
     H, W, _ = image.shape
     for xmin, ymin, xmax, ymax in bboxes:
         plt.gca().add_patch(patches.Rectangle(
@@ -89,12 +100,13 @@ def classes(image, bboxes, classes, labels=None):
 <span>def <span class="ident">classes</span></span>(<span>image, bboxes, classes, labels=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Draws a list of classes captions above the bounding box. If a <code>labels</code> list is provided then the respective label will be drawn, rather than the integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def classes(image, bboxes, classes, labels=None):
+    &#39;&#39;&#39;Draws a list of classes captions above the bounding box. If a `labels` list is provided then the respective label will be drawn, rather than the integer.&#39;&#39;&#39;
     H, W, _ = image.shape
     for (xmin, ymin, xmax, ymax), klass in zip(bboxes, classes):
         s = labels[klass] if labels else klass
@@ -105,12 +117,13 @@ def classes(image, bboxes, classes, labels=None):
 <span>def <span class="ident">grid_bools</span></span>(<span>image, grid)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Draws a grid boolean matrix, such as the hasobjs grid.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def grid_bools(image, grid):
+    &#39;&#39;&#39;Draws a grid boolean matrix, such as the hasobjs grid.&#39;&#39;&#39;
     H, W, _ = image.shape
     plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap([&#39;green&#39;]))</code></pre>
 </details>
@@ -119,12 +132,13 @@ def classes(image, bboxes, classes, labels=None):
 <span>def <span class="ident">grid_lines</span></span>(<span>image, h, w)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Draws grid lines.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def grid_lines(image, h, w):
+    &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
     H, W, _ = image.shape
     plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, linewidth=0.5)
     plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, linewidth=0.5)</code></pre>
@@ -134,12 +148,13 @@ def classes(image, bboxes, classes, labels=None):
 <span>def <span class="ident">grid_text</span></span>(<span>image, grid)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Draws a grid matrix of values, such as the classes grid.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def grid_text(image, grid):
+    &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
     H, W, _ = image.shape
     h, w = grid.shape
     for y in range(h):

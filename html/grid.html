@@ -99,17 +99,18 @@ def NewClasses():
         return np.zeros((h, w), np.int64)
     return f
 
-&#39;&#39;&#39;Same grid shape as `NewHasObj`.&#39;&#39;&#39;
 NewCenterness = NewHasObj
 
 ###########################################################
 
 def SetHasObj():
+    &#39;&#39;&#39;Sets 1 wherever the object is, according to the given slicing.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         grid[:, yy, xx] = 1
     return f
 
 def SetCenterSizeBboxesOnce():
+    &#39;&#39;&#39;Sets 1 on the object center location.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -122,6 +123,7 @@ def SetCenterSizeBboxesOnce():
     return f
 
 def SetRelBboxes():
+    &#39;&#39;&#39;For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -133,12 +135,14 @@ def SetRelBboxes():
     return f
 
 def SetClasses():
+    &#39;&#39;&#39;Sets the respective class wherever the object is, according to the given slicing.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         klass = datum[&#39;classes&#39;][i]
         grid[yy, xx] = klass
     return f
 
 def SetCenterness():
+    &#39;&#39;&#39;Sets the distance to the object for each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -155,12 +159,14 @@ def SetCenterness():
 ###########################################################
 
 def RemoveKeys(keys):
+    &#39;&#39;&#39;Removing keys in the transform is useful whenever you want to reject some keys to go to the data loader.&#39;&#39;&#39;
     keys = frozenset(keys)
     def f(**datum):
         return {k: v for k, v in datum.items() if k not in keys}
     return f
 
 def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
+    &#39;&#39;&#39;Applies the others methods to build the respective grids.&#39;&#39;&#39;
     def f(**datum):
         h, w = grid_size
         grids = {name: f(h, w) for name, f in new_grid_dict.items()}
@@ -174,6 +180,7 @@ def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
     return f
 
 def merge_dicts(l):
+    &#39;&#39;&#39;Utility function that concatenates a list of dictionaries into a single dictionary, useful for multi-level dictionaries.&#39;&#39;&#39;
     return {k: v for d in l for k, v in d.items()}</code></pre>
 </details>
 </section>
@@ -273,12 +280,13 @@ def merge_dicts(l):
 <span>def <span class="ident">RemoveKeys</span></span>(<span>keys)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Removing keys in the transform is useful whenever you want to reject some keys to go to the data loader.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def RemoveKeys(keys):
+    &#39;&#39;&#39;Removing keys in the transform is useful whenever you want to reject some keys to go to the data loader.&#39;&#39;&#39;
     keys = frozenset(keys)
     def f(**datum):
         return {k: v for k, v in datum.items() if k not in keys}
@@ -289,12 +297,13 @@ def merge_dicts(l):
 <span>def <span class="ident">SetCenterSizeBboxesOnce</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sets 1 on the object center location.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def SetCenterSizeBboxesOnce():
+    &#39;&#39;&#39;Sets 1 on the object center location.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -311,12 +320,13 @@ def merge_dicts(l):
 <span>def <span class="ident">SetCenterness</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sets the distance to the object for each location (see the <a href="https://arxiv.org/abs/1904.01355">FCOS paper</a>).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def SetCenterness():
+    &#39;&#39;&#39;Sets the distance to the object for each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -335,12 +345,13 @@ def merge_dicts(l):
 <span>def <span class="ident">SetClasses</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sets the respective class wherever the object is, according to the given slicing.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def SetClasses():
+    &#39;&#39;&#39;Sets the respective class wherever the object is, according to the given slicing.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         klass = datum[&#39;classes&#39;][i]
         grid[yy, xx] = klass
@@ -351,12 +362,13 @@ def merge_dicts(l):
 <span>def <span class="ident">SetHasObj</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sets 1 wherever the object is, according to the given slicing.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def SetHasObj():
+    &#39;&#39;&#39;Sets 1 wherever the object is, according to the given slicing.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         grid[:, yy, xx] = 1
     return f</code></pre>
@@ -366,12 +378,13 @@ def merge_dicts(l):
 <span>def <span class="ident">SetRelBboxes</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>For each location, sets the distance between each size of the bounding box and each location (see the <a href="https://arxiv.org/abs/1904.01355">FCOS paper</a>).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def SetRelBboxes():
+    &#39;&#39;&#39;For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -443,12 +456,13 @@ def merge_dicts(l):
 <span>def <span class="ident">Transform</span></span>(<span>grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Applies the others methods to build the respective grids.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
+    &#39;&#39;&#39;Applies the others methods to build the respective grids.&#39;&#39;&#39;
     def f(**datum):
         h, w = grid_size
         grids = {name: f(h, w) for name, f in new_grid_dict.items()}
@@ -483,12 +497,13 @@ def merge_dicts(l):
 <span>def <span class="ident">merge_dicts</span></span>(<span>l)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Utility function that concatenates a list of dictionaries into a single dictionary, useful for multi-level dictionaries.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def merge_dicts(l):
+    &#39;&#39;&#39;Utility function that concatenates a list of dictionaries into a single dictionary, useful for multi-level dictionaries.&#39;&#39;&#39;
     return {k: v for d in l for k, v in d.items()}</code></pre>
 </details>
 </dd>

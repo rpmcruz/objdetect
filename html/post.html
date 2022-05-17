@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>post API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Post-processing techniques to reduce the amount of superfluous bounding boxes." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,22 +22,29 @@
 <h1 class="title">Module <code>post</code></h1>
 </header>
 <section id="section-intro">
+<p>Post-processing techniques to reduce the amount of superfluous bounding boxes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def same(bi, bj):  # intersection-over-union
+<pre><code class="python">&#39;&#39;&#39;
+Post-processing techniques to reduce the amount of superfluous bounding boxes.
+&#39;&#39;&#39;
+
+def same(bi, bj):
+    &#39;&#39;&#39;Intersection over union utility.&#39;&#39;&#39;
     intersection = (min(bi[2], bj[2])-max(bi[0], bj[0])) * (min(bi[3], bj[3])-max(bi[1], bj[1]))
     union = (bi[2]-bi[0])*(bi[3]-bi[1]) + (bj[2]-bj[0])*(bj[3]-bj[1]) - intersection
     return intersection / union
 
 def NMS(H, B, *others, lambda_nms=0.5):
+    &#39;&#39;&#39;Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes. The `others` parameter allows passing other values which are also returned together with the filtered bounding boxes.&#39;&#39;&#39;
     Bnms = []
     Onms = [[] * len(others)]
     for i, (hi, bi) in enumerate(zip(H, B)):
         discard = False
         for j, (hj, bj) in enumerate(zip(H, B)):
-            if i != j and same(bi, bj) &gt;= lambda_nms:# and hj &gt; hi:
+            if i != j and same(bi, bj) &gt;= lambda_nms and hj &gt; hi:
                 discard = True
                 break
         if not discard:
@@ -58,18 +65,19 @@ def NMS(H, B, *others, lambda_nms=0.5):
 <span>def <span class="ident">NMS</span></span>(<span>H, B, *others, lambda_nms=0.5)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes. The <code>others</code> parameter allows passing other values which are also returned together with the filtered bounding boxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def NMS(H, B, *others, lambda_nms=0.5):
+    &#39;&#39;&#39;Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes. The `others` parameter allows passing other values which are also returned together with the filtered bounding boxes.&#39;&#39;&#39;
     Bnms = []
     Onms = [[] * len(others)]
     for i, (hi, bi) in enumerate(zip(H, B)):
         discard = False
         for j, (hj, bj) in enumerate(zip(H, B)):
-            if i != j and same(bi, bj) &gt;= lambda_nms:# and hj &gt; hi:
+            if i != j and same(bi, bj) &gt;= lambda_nms and hj &gt; hi:
                 discard = True
                 break
         if not discard:
@@ -83,12 +91,13 @@ def NMS(H, B, *others, lambda_nms=0.5):
 <span>def <span class="ident">same</span></span>(<span>bi, bj)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Intersection over union utility.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def same(bi, bj):  # intersection-over-union
+<pre><code class="python">def same(bi, bj):
+    &#39;&#39;&#39;Intersection over union utility.&#39;&#39;&#39;
     intersection = (min(bi[2], bj[2])-max(bi[0], bj[0])) * (min(bi[3], bj[3])-max(bi[1], bj[1]))
     union = (bi[2]-bi[0])*(bi[3]-bi[1]) + (bj[2]-bj[0])*(bj[3]-bj[1]) - intersection
     return intersection / union</code></pre>

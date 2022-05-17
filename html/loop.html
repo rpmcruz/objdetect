@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>loop API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Convenience functions for the training and evaluation loops." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,14 +22,20 @@
 <h1 class="title">Module <code>loop</code></h1>
 </header>
 <section id="section-intro">
+<p>Convenience functions for the training and evaluation loops.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import torch
+<pre><code class="python">&#39;&#39;&#39;
+Convenience functions for the training and evaluation loops.
+&#39;&#39;&#39;
+
+import torch
 from time import time
 
 def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
+    &#39;&#39;&#39;Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.&#39;&#39;&#39;
     device = next(model.parameters()).device
 
     # sanity-check: all losses must have reduction=&#39;none&#39;
@@ -67,6 +73,7 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
         print(f&#39;- {toc-tic:.1f}s - Avg loss: {avg_loss} - &#39; + &#39; - &#39;.join(f&#39;{name} loss: {avg}&#39; for name, avg in avg_losses.items()))
 
 def eval(ts, model):
+    &#39;&#39;&#39;Evaluates the model.&#39;&#39;&#39;
     device = next(model.parameters()).device
     inputs = []
     outputs = []
@@ -93,12 +100,13 @@ def eval(ts, model):
 <span>def <span class="ident">eval</span></span>(<span>ts, model)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Evaluates the model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def eval(ts, model):
+    &#39;&#39;&#39;Evaluates the model.&#39;&#39;&#39;
     device = next(model.parameters()).device
     inputs = []
     outputs = []
@@ -118,12 +126,13 @@ def eval(ts, model):
 <span>def <span class="ident">train</span></span>(<span>tr, model, opt, weight_loss_fns, loss_fns, epochs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Trains the model. <code>weight_loss_fns</code> and <code>loss_fns</code> are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
+    &#39;&#39;&#39;Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.&#39;&#39;&#39;
     device = next(model.parameters()).device
 
     # sanity-check: all losses must have reduction=&#39;none&#39;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>models API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="These are just simple implementations of possible backbones and heads. You might want to use a more complex pre-trained backbone. The models must …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,16 +22,22 @@
 <h1 class="title">Module <code>models</code></h1>
 </header>
 <section id="section-intro">
+<p>These are just simple implementations of possible backbones and heads. You might want to use a more complex pre-trained backbone. The models must produce grids that are then contrasted against the true grids.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from torch.nn import functional as F
+<pre><code class="python">&#39;&#39;&#39;
+These are just simple implementations of possible backbones and heads. You might want to use a more complex pre-trained backbone. The models must produce grids that are then contrasted against the true grids.
+&#39;&#39;&#39;
+
+from torch.nn import functional as F
 from torch import nn
 import torch
 import numpy as np
 
 class SimpleBackbone(nn.Module):
+    &#39;&#39;&#39;Very simple backbone. Applies convolutions with stride-2 for how many times as length of the given list. Furthermore, it outputs the result of those layers where the list is true. You may want to use a pre-trained architecture instead.&#39;&#39;&#39;
     def __init__(self, output_levels):
         super().__init__()
         prev, next = 3, 32
@@ -51,6 +57,7 @@ class SimpleBackbone(nn.Module):
         return outs
 
 class HeadHasObjs(nn.Module):
+    &#39;&#39;&#39;Produces a 1xHxW output. If in eval mode, then a sigmoid is applied.&#39;&#39;&#39;
     def __init__(self, ninputs):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, 1, 1)
@@ -62,6 +69,7 @@ class HeadHasObjs(nn.Module):
         return x
 
 class HeadExpBboxes(nn.Module):
+    &#39;&#39;&#39;Produces a 4xHxW output with exp applied to force the values to be positive.&#39;&#39;&#39;
     def __init__(self, ninputs):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, 4, 1)
@@ -71,6 +79,7 @@ class HeadExpBboxes(nn.Module):
         return torch.exp(x)
 
 class HeadCenterSizeBboxes(nn.Module):
+    &#39;&#39;&#39;Produces a 4xHxW output with sigmoids applied to the first two values (that is, the center of the bounding box).&#39;&#39;&#39;
     def __init__(self, ninputs):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, 4, 1)
@@ -82,6 +91,7 @@ class HeadCenterSizeBboxes(nn.Module):
         return bb
 
 class HeadClasses(nn.Module):
+    &#39;&#39;&#39;Produces a KxHxW, where K is the number of classes. If in eval mode, then a softmax is applied.&#39;&#39;&#39;
     def __init__(self, ninputs, nclasses):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, nclasses, 1)
@@ -93,6 +103,7 @@ class HeadClasses(nn.Module):
         return x
 
 class Model(nn.Module):
+    &#39;&#39;&#39;Combines a backbone with a list of dictionaries of heads. The reason why a list is used is because the backbone may produce multiple grids.&#39;&#39;&#39; 
     def __init__(self, backbone, multi_heads):
         super().__init__()
         self.backbone = backbone
@@ -117,39 +128,14 @@ class Model(nn.Module):
 <span>(</span><span>ninputs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
+<div class="desc"><p>Produces a 4xHxW output with sigmoids applied to the first two values (that is, the center of the bounding box).</p>
 <p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class HeadCenterSizeBboxes(nn.Module):
+    &#39;&#39;&#39;Produces a 4xHxW output with sigmoids applied to the first two values (that is, the center of the bounding box).&#39;&#39;&#39;
     def __init__(self, ninputs):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, 4, 1)
@@ -197,39 +183,14 @@ registered hooks while the latter silently ignores them.</p>
 <span>(</span><span>ninputs, nclasses)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
+<div class="desc"><p>Produces a KxHxW, where K is the number of classes. If in eval mode, then a softmax is applied.</p>
 <p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class HeadClasses(nn.Module):
+    &#39;&#39;&#39;Produces a KxHxW, where K is the number of classes. If in eval mode, then a softmax is applied.&#39;&#39;&#39;
     def __init__(self, ninputs, nclasses):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, nclasses, 1)
@@ -277,39 +238,14 @@ registered hooks while the latter silently ignores them.</p>
 <span>(</span><span>ninputs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
+<div class="desc"><p>Produces a 4xHxW output with exp applied to force the values to be positive.</p>
 <p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class HeadExpBboxes(nn.Module):
+    &#39;&#39;&#39;Produces a 4xHxW output with exp applied to force the values to be positive.&#39;&#39;&#39;
     def __init__(self, ninputs):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, 4, 1)
@@ -353,39 +289,14 @@ registered hooks while the latter silently ignores them.</p>
 <span>(</span><span>ninputs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
+<div class="desc"><p>Produces a 1xHxW output. If in eval mode, then a sigmoid is applied.</p>
 <p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class HeadHasObjs(nn.Module):
+    &#39;&#39;&#39;Produces a 1xHxW output. If in eval mode, then a sigmoid is applied.&#39;&#39;&#39;
     def __init__(self, ninputs):
         super().__init__()
         self.conv = nn.Conv2d(ninputs, 1, 1)
@@ -433,39 +344,14 @@ registered hooks while the latter silently ignores them.</p>
 <span>(</span><span>backbone, multi_heads)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
+<div class="desc"><p>Combines a backbone with a list of dictionaries of heads. The reason why a list is used is because the backbone may produce multiple grids.</p>
 <p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Model(nn.Module):
+    &#39;&#39;&#39;Combines a backbone with a list of dictionaries of heads. The reason why a list is used is because the backbone may produce multiple grids.&#39;&#39;&#39; 
     def __init__(self, backbone, multi_heads):
         super().__init__()
         self.backbone = backbone
@@ -510,39 +396,14 @@ registered hooks while the latter silently ignores them.</p>
 <span>(</span><span>output_levels)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
+<div class="desc"><p>Very simple backbone. Applies convolutions with stride-2 for how many times as length of the given list. Furthermore, it outputs the result of those layers where the list is true. You may want to use a pre-trained architecture instead.</p>
 <p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class SimpleBackbone(nn.Module):
+    &#39;&#39;&#39;Very simple backbone. Applies convolutions with stride-2 for how many times as length of the given list. Furthermore, it outputs the result of those layers where the list is true. You may want to use a pre-trained architecture instead.&#39;&#39;&#39;
     def __init__(self, output_levels):
         super().__init__()
         prev, next = 3, 32

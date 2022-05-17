@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>metrics API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Implementation of Precision-Recall and AP metrics." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,13 +22,19 @@
 <h1 class="title">Module <code>metrics</code></h1>
 </header>
 <section id="section-intro">
+<p>Implementation of Precision-Recall and AP metrics.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import numpy as np
+<pre><code class="python">&#39;&#39;&#39;
+Implementation of Precision-Recall and AP metrics.
+&#39;&#39;&#39;
+
+import numpy as np
 
 def IoU(bbox1, bbox2):
+    &#39;&#39;&#39;Intersection over union between two bounding boxes.&#39;&#39;&#39;
     x0 = max(bbox1[0], bbox2[0])
     x1 = min(bbox1[2], bbox2[2])
     y0 = max(bbox1[1], bbox2[1])
@@ -40,7 +46,7 @@ def IoU(bbox1, bbox2):
     return I / U
 
 def which_correct(BB_true, BB_pred, iou_threshold):
-    # for each bbox in all image, compute if found or not
+    &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold).&#39;&#39;&#39;
     correct = []
     for bb_true, bb_pred in zip(BB_true, BB_pred):
         c = [False] * len(bb_pred)
@@ -54,6 +60,7 @@ def which_correct(BB_true, BB_pred, iou_threshold):
     return correct
 
 def precision_recall_curve(CC_pred, BB_true, BB_pred, iou_threshold):
+    &#39;&#39;&#39;Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes.&#39;&#39;&#39;
     # flatten
     CC_pred = [c for cc in CC_pred for c in cc]
     # order &#39;correct&#39; based on confidence probability
@@ -71,20 +78,23 @@ def precision_recall_curve(CC_pred, BB_true, BB_pred, iou_threshold):
     return precision, recall
 
 def AP(CC_pred, BB, BB_pred, iou_threshold):
+    &#39;&#39;&#39;Produces an AP-score based on the precision-recall curve.&#39;&#39;&#39;
     precision, recall = precision_recall_curve(CC_pred, BB, BB_pred, iou_threshold)
     return np.sum(np.diff(recall) * precision[1:])
 
 def filter_class(k, YY, CC_pred, BB, BB_pred):
+    &#39;&#39;&#39;Utility to filter a given class.&#39;&#39;&#39;
     return ([cc[yy == k] for yy, cc in zip(YY, CC_pred)],
         [bb[yy == k] for yy, bb in zip(YY, BB)],
         [bb[yy == k] for yy, bb in zip(YY, BB_pred)])
 
 def mAP(YY, CC_pred, BB, BB_pred, iou_threshold):
-    # mAP = average for the classes
+    &#39;&#39;&#39;mAP = average AP for all classes.&#39;&#39;&#39;
     classes = np.unique(YY)
     return np.mean([AP(*filter_class(k, YY, CC_pred, BB, BB_pred), iou_threshold) for k in classes])
 
 def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
+    &#39;&#39;&#39;mAP = average AP for all classes and for a list of IoU thresholds.&#39;&#39;&#39;
     return np.mean(mAP(YY, CC_pred, BB, BB_pred, th) for th in iou_thresholds)</code></pre>
 </details>
 </section>
@@ -99,12 +109,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">AP</span></span>(<span>CC_pred, BB, BB_pred, iou_threshold)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Produces an AP-score based on the precision-recall curve.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def AP(CC_pred, BB, BB_pred, iou_threshold):
+    &#39;&#39;&#39;Produces an AP-score based on the precision-recall curve.&#39;&#39;&#39;
     precision, recall = precision_recall_curve(CC_pred, BB, BB_pred, iou_threshold)
     return np.sum(np.diff(recall) * precision[1:])</code></pre>
 </details>
@@ -113,12 +124,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">IoU</span></span>(<span>bbox1, bbox2)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Intersection over union between two bounding boxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def IoU(bbox1, bbox2):
+    &#39;&#39;&#39;Intersection over union between two bounding boxes.&#39;&#39;&#39;
     x0 = max(bbox1[0], bbox2[0])
     x1 = min(bbox1[2], bbox2[2])
     y0 = max(bbox1[1], bbox2[1])
@@ -134,12 +146,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">filter_class</span></span>(<span>k, YY, CC_pred, BB, BB_pred)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Utility to filter a given class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def filter_class(k, YY, CC_pred, BB, BB_pred):
+    &#39;&#39;&#39;Utility to filter a given class.&#39;&#39;&#39;
     return ([cc[yy == k] for yy, cc in zip(YY, CC_pred)],
         [bb[yy == k] for yy, bb in zip(YY, BB)],
         [bb[yy == k] for yy, bb in zip(YY, BB_pred)])</code></pre>
@@ -149,13 +162,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">mAP</span></span>(<span>YY, CC_pred, BB, BB_pred, iou_threshold)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>mAP = average AP for all classes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def mAP(YY, CC_pred, BB, BB_pred, iou_threshold):
-    # mAP = average for the classes
+    &#39;&#39;&#39;mAP = average AP for all classes.&#39;&#39;&#39;
     classes = np.unique(YY)
     return np.mean([AP(*filter_class(k, YY, CC_pred, BB, BB_pred), iou_threshold) for k in classes])</code></pre>
 </details>
@@ -164,12 +177,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">mAP_ious</span></span>(<span>YY, CC_pred, BB, BB_pred, iou_thresholds)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>mAP = average AP for all classes and for a list of IoU thresholds.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
+    &#39;&#39;&#39;mAP = average AP for all classes and for a list of IoU thresholds.&#39;&#39;&#39;
     return np.mean(mAP(YY, CC_pred, BB, BB_pred, th) for th in iou_thresholds)</code></pre>
 </details>
 </dd>
@@ -177,12 +191,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">precision_recall_curve</span></span>(<span>CC_pred, BB_true, BB_pred, iou_threshold)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def precision_recall_curve(CC_pred, BB_true, BB_pred, iou_threshold):
+    &#39;&#39;&#39;Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes.&#39;&#39;&#39;
     # flatten
     CC_pred = [c for cc in CC_pred for c in cc]
     # order &#39;correct&#39; based on confidence probability
@@ -204,13 +219,13 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <span>def <span class="ident">which_correct</span></span>(<span>BB_true, BB_pred, iou_threshold)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def which_correct(BB_true, BB_pred, iou_threshold):
-    # for each bbox in all image, compute if found or not
+    &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold).&#39;&#39;&#39;
     correct = []
     for bb_true, bb_pred in zip(BB_true, BB_pred):
         c = [False] * len(bb_pred)
