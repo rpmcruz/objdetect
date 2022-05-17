@@ -17,16 +17,16 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 The package is divided into the following components:
 
-* [`aug`](html/aug.html): Some data augmentation routines.
-* [`data`](html/data.html): Toy datasets.
-* [`grid`](html/grid.html): Bounding box <=> grid conversion functions.
-* [`inv_grid`](html/inv_grid.html): Inversions for the `grid` methods.
-* [`loop`](html/loop.html): Convenience functions to train and evaluate the model.
-* [`losses`](html/losses.html): Extra losses for object detection.
-* [`metrics`](html/metrics.html): The common AP/Precision-Recall metrics.
-* [`models`](html/models.html): Backbone example and several common heads.
-* [`plot`](html/plot.html): Common plotting methods.
-* [`post`](#post): Post-processing algorithms, such as non-maximum suppression.
+* [`aug`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/aug.html): Some data augmentation routines.
+* [`data`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/data.html): Toy datasets.
+* [`grid`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/grid.html): Bounding box <=> grid conversion functions.
+* [`inv_grid`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/inv_grid.html): Inversions for the `grid` methods.
+* [`loop`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/loop.html): Convenience functions to train and evaluate the model.
+* [`losses`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/losses.html): Extra losses for object detection.
+* [`metrics`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/metrics.html): The common AP/Precision-Recall metrics.
+* [`models`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/models.html): Backbone example and several common heads.
+* [`plot`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/plot.html): Common plotting methods.
+* [`post`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/post.html): Post-processing algorithms, such as non-maximum suppression.
 
 ## Getting Started
 
