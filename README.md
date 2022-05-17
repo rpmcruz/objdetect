@@ -183,7 +183,7 @@ plt.show()
 
 ![Model output example](imgs/output.png)
 
-The result is not very good because we are using a very crude backbone. Furthermore, losses could be improved, e.g. using focal sigmoid loss like RetineNet instead of BCE, or predicting "centerness" like FCOS, amongst other possible optimizations.
+The result is not very good because we are using a very crude backbone. Furthermore, losses could be improved, e.g. using focal sigmoid loss like RetinaNet instead of BCE, or predicting "centerness" like FCOS, amongst other possible optimizations. Not to mention anchors and multi-scale grids.
 
 When using multiple grids, then the method `od.inv_grid.MultiLevelInvTransform()` should be used where dependencies are specified on what multiple grids should be used to produce the final grid (e.g., `dependencies={'bboxes': ['bboxes1', 'bboxes2', ...]}`.
 
