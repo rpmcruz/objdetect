@@ -1,73 +1,59 @@
+'''
+Data augmentations methods that function similarly to the [albumentations package](https://albumentations.ai/), and, in fact, should be compatible with it so that you may use albumentations if you wish.
+'''
+
 from skimage import transform
 import numpy as np
 
-'''
-You do not need to use our augmentation methods. You can easily use
-Albumentations or any other package. Our API should be similar in use to
-Albumentations, but simpler. Look at the bottom for an usage example.
-'''
-
-def Compose(*l):
-    def f(**datum):
-        for t in l:
-            datum = t(**datum)
-        return datum
-    return f
-
-def Resize(img_size):
-    def f(image, **args):
-        image = transform.resize(image, img_size).astype(np.float32)
-        return {**args, 'image': image}
-    return f
-
-def RandomCrop(crop_size):
-    def f(image, bboxes, **args):
-        orig_shape = image.shape
-        i = np.random.randint(0, orig_shape[1]-crop_size[0])
-        j = np.random.randint(0, orig_shape[0]-crop_size[1])
-        image = image[j:j+crop_size[1], i:i+crop_size[0]]
-        bboxes = [(
-            max((b[0]*orig_shape[1] - i)/crop_size[0], 0),
-            max((b[1]*orig_shape[0] - j)/crop_size[1], 0),
-            min((b[2]*orig_shape[1] - i)/crop_size[0], 1),
-            min((b[3]*orig_shape[0] - j)/crop_size[1], 1),
-        ) for b in bboxes]
-        # filter bounding boxes outside the view
-        bboxes = [b for b in bboxes if b[0] < b[2] and b[1] < b[3]]
-        return {**args, 'image': image, 'bboxes': bboxes}
+def ResizeAndNormalize(H, W):
+    '''Uses skimage resize function which both resizes (to the given size `H` x `W`) and normalizes to [0, 1].'''
+    def f(image, **data):
+        image = transform.resize(image, (H, W)).astype(np.float32)
+        return {'image': image, **data}
     return f
 
 def RandomHflip():
-    def f(image, bboxes, **args):
+    '''Random horizontal flips.'''
+    def f(image, bboxes, **data):
         if np.random.rand() < 0.5:
             image = np.flip(image, 1)
-            bboxes = [(1-b[2], b[1], 1-b[0], b[3]) for b in bboxes]
-        return {**args, 'image': image, 'bboxes': bboxes}
+            bboxes = bboxes.copy()
+            bboxes[:, 0] = 1 - bboxes[:, 0]
+            bboxes[:, 2] = 1 - bboxes[:, 2]
+        return {'image': image, 'bboxes': bboxes, **data}
     return f
 
 def RandomBrightnessContrast(brightness_value, contrast_value):
-    def f(image, **args):
+    '''Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2].'''
+    def f(image, **data):
         brightness = 1 - (np.random.rand()*brightness_value - brightness_value/2)
         contrast = np.random.rand()*contrast_value - contrast_value/2
         image = np.clip(image*brightness + contrast, 0, 1)
-        return  {**args, 'image': image}
+        return {'image': image, **data}
     return f
 
-def VggNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
-    # some pre-trained models use a normalization different than z-std [0,1]
-    mean = np.asarray(mean, np.float32)
-    std = np.asarray(std, np.float32)
-    def f(image, **args):
-        image = (image - mean) / std
-        return {**args, 'image': image}
+def RandomCrop(crop_H, crop_W):
+    '''Randomly crops the image so that the final image has size `crop_H` x `crop_W`.'''
+    def f(image, bboxes, **data):
+        orig_H, orig_W, _ = image.shape
+        i = np.random.randint(0, orig_H-crop_H)
+        j = np.random.randint(0, orig_W-crop_W)
+        image = image[j:j+crop_H, i:i+crop_W]
+        bboxes = np.stack((
+            np.maximum((bboxes[:, 0]*orig_W - i)/crop_W, 0),
+            np.maximum((bboxes[:, 1]*orig_H - j)/crop_H, 0),
+            np.minimum((bboxes[:, 2]*orig_W - i)/crop_W, 1),
+            np.minimum((bboxes[:, 3]*orig_H - j)/crop_H, 1)
+        ), -1)
+        # filter only bounding boxes inside the view
+        bboxes = bboxes[np.logical_and(b[:, 0] < b[:, 2], b[:, 1] < b[:, 3])]
+        return {'image': image, 'bboxes': bboxes, **data}
     return f
 
-if __name__ == '__main__':  # debug
-    import matplotlib.pyplot as plt
-    import datasets, plot
-    aug = Combine(Resize((282, 282)), RandomCrop((256, 256)), RandomHflip(), RandomBrightnessContrast())
-    ds = datasets.VOCDetection('data', 'train', False, aug, None)
-    datum = ds[0]
-    plt.imshow(datum['image'])
-    plot.bboxes(datum['image'], datum['bboxes'])
-    plt.show()
+def Compose(*transformations):
+    '''Applies the given `transformations` in succession.'''
+    def f(**data):
+        for t in transformations:
+            data = t(**data)
+        return data
+    return f

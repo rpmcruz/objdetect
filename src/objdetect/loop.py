@@ -1,79 +1,60 @@
-from time import time
-from tqdm import tqdm
+'''
+Convenience functions for the training and evaluation loops.
+'''
+
 import torch
+from time import time
 
-'''
-Convenience functions for the training and evaluation loops. Losses must be a
-dictionary, specifying which loss to use for each respective model output and
-input data. At each epoch, calls scheduler.step(avg_loss) and stops if it
-returns True.
+def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
+    '''Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.'''
+    device = next(model.parameters()).device
 
-Please keep in mind that losses may not produce a scalar -- i.e., you must use
-reduction='none'.
-'''
+    # sanity-check: all losses must have reduction='none'
+    data = next(iter(tr))
+    preds = model(data['image'].permute(0, 3, 1, 2).to(device))
+    for name, f in loss_fns.items():
+        loss_value = f(preds[name], data[name].to(device))
+        assert len(loss_value.shape) > 0, f"Loss {name} must have reduction='none'"
 
-def train(model, tr, opt, losses, epochs, scheduler=None):
     model.train()
     for epoch in range(epochs):
         print(f'* Epoch {epoch+1} / {epochs}')
         tic = time()
         avg_loss = 0
+        avg_losses = {name: 0 for name in loss_fns}
         for data in tr:
+            X = data['image'].permute(0, 3, 1, 2).to(device)
             opt.zero_grad()
-            X = data['image'].permute(0, 3, 1, 2).cuda()
             preds = model(X)
+            data_cuda = {name: data[name].to(device) for name in loss_fns}
 
             loss = 0
-            confs_grid = data['confs_grid'].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
-            for key in losses:
-                # we must mupltiply all loss value (except for confs_grid) by
-                # data[confs_grid] (which is 0 or 1) so that if there is no
-                # object then the model is *not* penalized.
-                coef = 1 if key == 'confs_grid' else confs_grid
-                # permutate and flatten so that we have a vector of features
-                # squeeze removes the feature dimension if there is only one feature
-                _preds = preds[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
-                _inputs = data[key].permute(0, 2, 3, 4, 1).flatten(0, 3).squeeze().cuda()
-                loss_value = losses[key](_preds, _inputs)
-                assert loss_value.ndim > 0, f"Loss {key} cannot produce scalars (ensure you use reduction='none')"
-                if len(loss_value.shape) > 1:
-                    loss_value = loss_value.sum(1)
-                loss += (coef * loss_value).mean()
+            for name, f in loss_fns.items():
+                W = weight_loss_fns[name](data_cuda)
+                true = data_cuda[name]
+                pred = preds[name]
+                loss_value = (W*f(pred, true)).mean()
+                loss += loss_value
+                avg_losses[name] += float(loss_value) / len(tr)
 
             loss.backward()
             opt.step()
             avg_loss += float(loss) / len(tr)
         toc = time()
-        print(f'- {toc-tic:.1f}s - Loss: {avg_loss}')
-        if scheduler:
-            if scheduler.step(avg_loss):
-                print('Stop due to scheduler')
-                break
+        print(f'- {toc-tic:.1f}s - Avg loss: {avg_loss} - ' + ' - '.join(f'{name} loss: {avg}' for name, avg in avg_losses.items()))
 
-def evaluate(model, ts, grid_transform, confidence_threshold=0.5):
-    list_inputs = []
-    list_preds = []
+def eval(ts, model):
+    '''Evaluates the model.'''
+    device = next(model.parameters()).device
+    inputs = []
+    outputs = []
     model.eval()
-    for data in tqdm(ts):
-        X = data['image'].permute(0, 3, 1, 2).cuda()
+    for data in ts:
+        X = data['image'].permute(0, 3, 1, 2).to(device)
         with torch.no_grad():
             preds = model(X)
-        preds = {k: v.detach().cpu().numpy() for k, v in preds.items()}
-        preds = grid_transform.inv(preds, confidence_threshold)
-        list_inputs += grid_transform.inv(data)
-        list_preds += preds
-    return list_inputs, list_preds
 
-class ConvergeStop:
-    def __init__(self, patience=10):
-        self.patience = patience
-        self.min_loss = float('inf')
-        self.count = 0
-
-    def step(self, loss):
-        if loss < self.min_loss:
-            self.min_loss = loss
-            self.count = 0
-        else:
-            self.count += 1
-        return self.count >= self.patience
+        n = X.shape[0]
+        inputs += [{k: v[i].numpy() for k, v in data.items()} for i in range(n)]
+        outputs += [{k: v[i].detach().cpu().numpy() for k, v in preds.items()} for i in range(n)]
+    return inputs, outputs

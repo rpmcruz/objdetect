@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>grid API documentation</title>
+<meta name="description" content="In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>grid</code></h1>
+</header>
+<section id="section-intro">
+<p>In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#39;&#39;&#39;
+In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid.
+&#39;&#39;&#39;
+
+import numpy as np
+
+def SliceAcrossCeilBbox():
+    &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object (similar to FCOS).&#39;&#39;&#39;
+    def f(h, w, bbox):
+        yy = slice(int(np.ceil(bbox[1]*h)), int(np.ceil(bbox[3]*h)))
+        xx = slice(int(np.ceil(bbox[0]*w)), int(np.ceil(bbox[2]*w)))
+        return yy, xx
+    return f
+
+def SliceOnlyCenterBbox():
+    &#39;&#39;&#39;Place the object only on the center location of the object (similar to YOLOv3).&#39;&#39;&#39;
+    def f(h, w, bbox):
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        x = int(xc*w)
+        y = int(yc*h)
+        return slice(y, y+1), slice(x, x+1)
+    return f
+
+###########################################################
+
+def SizeFilter(min_cells, max_cells):
+    &#39;&#39;&#39;Filter objects whose size is within [`min_cells`, `max_cells`] (the FCOS paper recommends [4, 8]).&#39;&#39;&#39;
+    def f(h, w, bbox):
+        xcells = (bbox[2]-bbox[0]) * w
+        ycells = (bbox[3]-bbox[1]) * h
+        return min_cells &lt;= xcells &lt;= max_cells
+    return f
+
+def compute_clusters(ds, n):
+    &#39;&#39;&#39;Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.&#39;&#39;&#39;
+    from sklearn.cluster import KMeans
+    BB = [d[&#39;bboxes&#39;] for d in ds]
+    BB = [(b[2], b[3]) for bb in BB for b in bb]
+    return KMeans(n).fit(BB).cluster_centers_
+
+def AnchorFilter(anchor, min_iou):
+    &#39;&#39;&#39;Filter only objects with ≥IoU of a given `anchor`.&#39;&#39;&#39;
+    import metrics
+    def f(h, w, bbox):
+        xc = (bbox[0]+bbox[2]) / 2
+        yc = (bbox[1]+bbox[3]) / 2
+        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
+            xc+anchor[0]/2, yc+anchor[1]/2)
+        return IoU(bbox, anchor_box) &gt;= min_iou
+    return f
+
+###########################################################
+
+def NewHasObj():
+    &#39;&#39;&#39;Grid 1xhxw.&#39;&#39;&#39;
+    def f(h, w):
+        return np.zeros((1, h, w), np.float32)
+    return f
+
+def NewBboxes():
+    &#39;&#39;&#39;Grid 4xhxw.&#39;&#39;&#39;
+    def f(h, w):
+        return np.zeros((4, h, w), np.float32)
+    return f
+
+def NewClasses():
+    &#39;&#39;&#39;Grid hxw.&#39;&#39;&#39;
+    def f(h, w):  # CrossEntropyLoss needs (h, w), not (1, h, w)
+        return np.zeros((h, w), np.int64)
+    return f
+
+&#39;&#39;&#39;Same grid shape as `NewHasObj`.&#39;&#39;&#39;
+NewCenterness = NewHasObj
+
+###########################################################
+
+def SetHasObj():
+    def f(grid, yy, xx, datum, i):
+        grid[:, yy, xx] = 1
+    return f
+
+def SetCenterSizeBboxesOnce():
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
+        grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+    return f
+
+def SetRelBboxes():
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        grid[0, yy, xx] = (_xx/w) - bbox[0]
+        grid[1, yy, xx] = (_yy/h) - bbox[1]
+        grid[2, yy, xx] = bbox[2] - (_xx/w)
+        grid[3, yy, xx] = bbox[3] - (_yy/h)
+    return f
+
+def SetClasses():
+    def f(grid, yy, xx, datum, i):
+        klass = datum[&#39;classes&#39;][i]
+        grid[yy, xx] = klass
+    return f
+
+def SetCenterness():
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        L = (_xx/w) - bbox[0]
+        T = (_yy/h) - bbox[1]
+        R = bbox[2] - (_xx/w)
+        B = bbox[3] - (_yy/h)
+        factor1 = np.minimum(L, R)/np.maximum(L, R)
+        factor2 = np.minimum(T, B)/np.maximum(T, B)
+        return np.sqrt(factor1 * factor2)
+    return f
+
+###########################################################
+
+def RemoveKeys(keys):
+    keys = frozenset(keys)
+    def f(**datum):
+        return {k: v for k, v in datum.items() if k not in keys}
+    return f
+
+def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
+    def f(**datum):
+        h, w = grid_size
+        grids = {name: f(h, w) for name, f in new_grid_dict.items()}
+        for i, bbox in enumerate(datum[&#39;bboxes&#39;]):
+            if filter_fn != None and not filter_fn(h, w, bbox):
+                continue
+            yy, xx = slice_fn(h, w, bbox)
+            for name, f in set_grid_dict.items():
+                f(grids[name], yy, xx, datum, i)
+        return {**datum, **grids}
+    return f
+
+def merge_dicts(l):
+    return {k: v for d in l for k, v in d.items()}</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="grid.AnchorFilter"><code class="name flex">
+<span>def <span class="ident">AnchorFilter</span></span>(<span>anchor, min_iou)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Filter only objects with ≥IoU of a given <code>anchor</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def AnchorFilter(anchor, min_iou):
+    &#39;&#39;&#39;Filter only objects with ≥IoU of a given `anchor`.&#39;&#39;&#39;
+    import metrics
+    def f(h, w, bbox):
+        xc = (bbox[0]+bbox[2]) / 2
+        yc = (bbox[1]+bbox[3]) / 2
+        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
+            xc+anchor[0]/2, yc+anchor[1]/2)
+        return IoU(bbox, anchor_box) &gt;= min_iou
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.NewBboxes"><code class="name flex">
+<span>def <span class="ident">NewBboxes</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Grid 4xhxw.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def NewBboxes():
+    &#39;&#39;&#39;Grid 4xhxw.&#39;&#39;&#39;
+    def f(h, w):
+        return np.zeros((4, h, w), np.float32)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.NewCenterness"><code class="name flex">
+<span>def <span class="ident">NewCenterness</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Grid 1xhxw.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def NewHasObj():
+    &#39;&#39;&#39;Grid 1xhxw.&#39;&#39;&#39;
+    def f(h, w):
+        return np.zeros((1, h, w), np.float32)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.NewClasses"><code class="name flex">
+<span>def <span class="ident">NewClasses</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Grid hxw.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def NewClasses():
+    &#39;&#39;&#39;Grid hxw.&#39;&#39;&#39;
+    def f(h, w):  # CrossEntropyLoss needs (h, w), not (1, h, w)
+        return np.zeros((h, w), np.int64)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.NewHasObj"><code class="name flex">
+<span>def <span class="ident">NewHasObj</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Grid 1xhxw.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def NewHasObj():
+    &#39;&#39;&#39;Grid 1xhxw.&#39;&#39;&#39;
+    def f(h, w):
+        return np.zeros((1, h, w), np.float32)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.RemoveKeys"><code class="name flex">
+<span>def <span class="ident">RemoveKeys</span></span>(<span>keys)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def RemoveKeys(keys):
+    keys = frozenset(keys)
+    def f(**datum):
+        return {k: v for k, v in datum.items() if k not in keys}
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetCenterSizeBboxesOnce"><code class="name flex">
+<span>def <span class="ident">SetCenterSizeBboxesOnce</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetCenterSizeBboxesOnce():
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
+        grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetCenterness"><code class="name flex">
+<span>def <span class="ident">SetCenterness</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetCenterness():
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        L = (_xx/w) - bbox[0]
+        T = (_yy/h) - bbox[1]
+        R = bbox[2] - (_xx/w)
+        B = bbox[3] - (_yy/h)
+        factor1 = np.minimum(L, R)/np.maximum(L, R)
+        factor2 = np.minimum(T, B)/np.maximum(T, B)
+        return np.sqrt(factor1 * factor2)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetClasses"><code class="name flex">
+<span>def <span class="ident">SetClasses</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetClasses():
+    def f(grid, yy, xx, datum, i):
+        klass = datum[&#39;classes&#39;][i]
+        grid[yy, xx] = klass
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetHasObj"><code class="name flex">
+<span>def <span class="ident">SetHasObj</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetHasObj():
+    def f(grid, yy, xx, datum, i):
+        grid[:, yy, xx] = 1
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetRelBboxes"><code class="name flex">
+<span>def <span class="ident">SetRelBboxes</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetRelBboxes():
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        grid[0, yy, xx] = (_xx/w) - bbox[0]
+        grid[1, yy, xx] = (_yy/h) - bbox[1]
+        grid[2, yy, xx] = bbox[2] - (_xx/w)
+        grid[3, yy, xx] = bbox[3] - (_yy/h)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SizeFilter"><code class="name flex">
+<span>def <span class="ident">SizeFilter</span></span>(<span>min_cells, max_cells)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Filter objects whose size is within [<code>min_cells</code>, <code>max_cells</code>] (the FCOS paper recommends [4, 8]).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SizeFilter(min_cells, max_cells):
+    &#39;&#39;&#39;Filter objects whose size is within [`min_cells`, `max_cells`] (the FCOS paper recommends [4, 8]).&#39;&#39;&#39;
+    def f(h, w, bbox):
+        xcells = (bbox[2]-bbox[0]) * w
+        ycells = (bbox[3]-bbox[1]) * h
+        return min_cells &lt;= xcells &lt;= max_cells
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SliceAcrossCeilBbox"><code class="name flex">
+<span>def <span class="ident">SliceAcrossCeilBbox</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Choose all grid locations that contain the entirety of the object (similar to FCOS).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SliceAcrossCeilBbox():
+    &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object (similar to FCOS).&#39;&#39;&#39;
+    def f(h, w, bbox):
+        yy = slice(int(np.ceil(bbox[1]*h)), int(np.ceil(bbox[3]*h)))
+        xx = slice(int(np.ceil(bbox[0]*w)), int(np.ceil(bbox[2]*w)))
+        return yy, xx
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SliceOnlyCenterBbox"><code class="name flex">
+<span>def <span class="ident">SliceOnlyCenterBbox</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Place the object only on the center location of the object (similar to YOLOv3).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SliceOnlyCenterBbox():
+    &#39;&#39;&#39;Place the object only on the center location of the object (similar to YOLOv3).&#39;&#39;&#39;
+    def f(h, w, bbox):
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        x = int(xc*w)
+        y = int(yc*h)
+        return slice(y, y+1), slice(x, x+1)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.Transform"><code class="name flex">
+<span>def <span class="ident">Transform</span></span>(<span>grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
+    def f(**datum):
+        h, w = grid_size
+        grids = {name: f(h, w) for name, f in new_grid_dict.items()}
+        for i, bbox in enumerate(datum[&#39;bboxes&#39;]):
+            if filter_fn != None and not filter_fn(h, w, bbox):
+                continue
+            yy, xx = slice_fn(h, w, bbox)
+            for name, f in set_grid_dict.items():
+                f(grids[name], yy, xx, datum, i)
+        return {**datum, **grids}
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.compute_clusters"><code class="name flex">
+<span>def <span class="ident">compute_clusters</span></span>(<span>ds, n)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Uses K-Means to produce the top-<code>n</code> sizes for the given dataset <code>ds</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compute_clusters(ds, n):
+    &#39;&#39;&#39;Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.&#39;&#39;&#39;
+    from sklearn.cluster import KMeans
+    BB = [d[&#39;bboxes&#39;] for d in ds]
+    BB = [(b[2], b[3]) for bb in BB for b in bb]
+    return KMeans(n).fit(BB).cluster_centers_</code></pre>
+</details>
+</dd>
+<dt id="grid.merge_dicts"><code class="name flex">
+<span>def <span class="ident">merge_dicts</span></span>(<span>l)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge_dicts(l):
+    return {k: v for d in l for k, v in d.items()}</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="grid.AnchorFilter" href="#grid.AnchorFilter">AnchorFilter</a></code></li>
+<li><code><a title="grid.NewBboxes" href="#grid.NewBboxes">NewBboxes</a></code></li>
+<li><code><a title="grid.NewCenterness" href="#grid.NewCenterness">NewCenterness</a></code></li>
+<li><code><a title="grid.NewClasses" href="#grid.NewClasses">NewClasses</a></code></li>
+<li><code><a title="grid.NewHasObj" href="#grid.NewHasObj">NewHasObj</a></code></li>
+<li><code><a title="grid.RemoveKeys" href="#grid.RemoveKeys">RemoveKeys</a></code></li>
+<li><code><a title="grid.SetCenterSizeBboxesOnce" href="#grid.SetCenterSizeBboxesOnce">SetCenterSizeBboxesOnce</a></code></li>
+<li><code><a title="grid.SetCenterness" href="#grid.SetCenterness">SetCenterness</a></code></li>
+<li><code><a title="grid.SetClasses" href="#grid.SetClasses">SetClasses</a></code></li>
+<li><code><a title="grid.SetHasObj" href="#grid.SetHasObj">SetHasObj</a></code></li>
+<li><code><a title="grid.SetRelBboxes" href="#grid.SetRelBboxes">SetRelBboxes</a></code></li>
+<li><code><a title="grid.SizeFilter" href="#grid.SizeFilter">SizeFilter</a></code></li>
+<li><code><a title="grid.SliceAcrossCeilBbox" href="#grid.SliceAcrossCeilBbox">SliceAcrossCeilBbox</a></code></li>
+<li><code><a title="grid.SliceOnlyCenterBbox" href="#grid.SliceOnlyCenterBbox">SliceOnlyCenterBbox</a></code></li>
+<li><code><a title="grid.Transform" href="#grid.Transform">Transform</a></code></li>
+<li><code><a title="grid.compute_clusters" href="#grid.compute_clusters">compute_clusters</a></code></li>
+<li><code><a title="grid.merge_dicts" href="#grid.merge_dicts">merge_dicts</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

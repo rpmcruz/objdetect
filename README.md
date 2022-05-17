@@ -1,11 +1,11 @@
 # objdetect
-Light-weight and versatile one-stage object detection framework
+Lightweight and versatile one-stage object detection framework.
 
 ## Introduction
 
 I am a post-doc at FEUP (University of Porto) working on perception for autonomous driving ([THEIA project](https://noticias.up.pt/u-porto-bosch-projeto-de-investigacao-28-milhoes-de-euros/)). I developed this one-stage object detection framework because existing frameworks, such as [detectron2](https://github.com/facebookresearch/detectron2), are either for two-stage models or are not versatile and simple enough to adapt for new models. At the very least, I hope this package is educational for someone learning object detection.
 
-Let me know if you have success or need help to use this package for your project. -- [Ricardo Cruz](mailto:rpcruz@fe.up.pt)
+Let me know if you have success or need help using this package for your project. -- [Ricardo Cruz](mailto:rpcruz@fe.up.pt)
 
 ## Install
 
@@ -13,227 +13,192 @@ Let me know if you have success or need help to use this package for your projec
 pip3 install git+https://github.com/rpmcruz/objdetect.git
 ```
 
-## Usage
+## API
 
-The package is divided into the following components (ordered by appearance in this document):
+The package is divided into the following components:
 
-* [`datasets`](#datasets): Toy datasets. Explore them to see how to plug a new dataset.
-* [`grid`](#grid): Bounding box <=> grid conversion functions.
-* [`models`](#models): Examples of models. You may use your own backbones or heads, as long as it follows the same interface.
-* [`aug`](#aug): Some data augmentation routines.
-* [`loop`](#loop): Convenience functions to train and evaluate the model.
-* [`post`](#post): Post-processing algorithms; for now, non-maximum suppression.
-* [`metrics`](#metrics): Common metrics.
-* [`anchors`](#anchors): Utility function to find the best anchors cluster.
+* [`aug`](html/aug.html): Some data augmentation routines.
+* [`data`](html/data.html): Toy datasets.
+* [`grid`](html/grid.html): Bounding box <=> grid conversion functions.
+* [`inv_grid`](html/inv_grid.html): Inversions for the `grid` methods.
+* [`loop`](html/loop.html): Convenience functions to train and evaluate the model.
+* [`losses`](html/losses.html): Extra losses for object detection.
+* [`metrics`](html/metrics.html): The common AP/Precision-Recall metrics.
+* [`models`](html/models.html): Backbone example and several common heads.
+* [`plot`](html/plot.html): Common plotting methods.
+* [`post`](#post): Post-processing algorithms, such as non-maximum suppression.
 
-Each component is described below. But we also recommend that you have a look at the code itself for the full API.
+## Getting Started
 
-### datasets
+This package relies heavily on two things: (i) dictionaries to bind everything together (grid/model/loss/etc), and (ii) function closures to decompose functionality into smaller parts.
 
-Each dataset must return a single "datum", which is a dictionary containing at least `image` and `bboxes`. Optionally, it can also contain `classes` and other attributes (such as `cos_angle` and `sin_angle` for Pixor). In this package, we heavily rely on dictionaries to bind the data inputs, the model outputs, and the loss functions.
+**Grid:* When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). We recommend doing it as the final step of the data augmentation pipeline. Doing it this way takes advantage of DataLoader parallelization. For the transformation pipeline, we provide methods that function similarly to the [albumentations package](https://albumentations.ai/), and, in fact, should be compatible with it so that you may use albumentations if you wish.
 
-Each bounding box uses the format `(xmin, ymin, xmax, ymax)` with each value normalized [0,1].
+Let us build three grids specifying whether an object is occupying the given location (`hasobjs`), the classes grid (`classes`), and the bounding boxes information grid (`bboxes`).
 
 ```python
 import objdetect as od
-download = False
-tr = od.datasets.VOCDetection('data', 'train', download, None, None)
-labels = od.datasets.VOCDetection.labels
-datum = tr[4]
-print(datum.keys())
+
+grid_size = (8, 8)
+# if any objects should be filtered (useful for multiple grids)
+filter_function = None
+# which locations are occupied by the object
+slicing_function = od.grid.SliceAcrossCeilBbox()
+create_grids = {
+    'hasobjs': od.grid.NewHasObj(),
+    'classes': od.grid.NewClasses(),
+    'bboxes': od.grid.NewBboxes()
+}
+map_grids = {
+    'hasobjs': od.grid.SetHasObj(),
+    'classes': od.grid.SetClasses(),
+    'bboxes': od.grid.SetRelBboxes()
+}
+
+transform = od.aug.Compose(
+    od.aug.ResizeAndNormalize(256, 256),
+    od.grid.Transform(grid_size, filter_function, slicing_function, create_grids, map_grids)
+)
+ds = od.data.VOCDetection('data', 'train', transform, download=True)
 ```
 
-```
-dict_keys(['image', 'bboxes', 'classes'])
+Looking at the pipeline:
+
+```python
+d = ds[0]
+print('contains:', d.keys())
+for k, v in d.items():
+    print(k, v.shape)
 ```
 
-Plot the datum to see if everything looks good:
+Output:
+
+```
+image (256, 256, 3)
+bboxes (4, 8, 8)
+classes (8, 8)
+hasobjs (1, 8, 8)
+```
+
+Plot the `hasobjs` and `classes` matrices grids:
 
 ```python
 import matplotlib.pyplot as plt
-plt.imshow(datum['image'])
-od.plot.datum(plt.gca(), datum, labels)
+d = ds[0]
+plt.imshow(d['image'])
+od.plot.grid_lines(d['image'], 8, 8)
+od.plot.grid_bools(d['image'], d['hasobjs'][0])
+od.plot.grid_text(d['image'], d['classes'] + d['hasobjs'][0].astype(int))
 plt.show()
 ```
 
-![Bounding boxes plot](imgs/bboxes.png)
+![Grids output](imgs/grids.png)
 
-### grid
+(The reason why we sum `classes` and `hasobjs` is to distinguish between no-class (0) and class=0.)
 
-In one-shot detection, the model receives the bounding boxes in the form of a grid. We provide routines to do this transformation and its inverse. Here we are going for an 8x8 grid and we are not going to use anchors. Please see `train_coco.py` on how to use anchors. The shape of our grids is: `(N, Nf, Na, H, W)`, where `Nf` are the features of the grid (for example, 4 for the bounding box) and `Na` the number of anchors (for consistency, even if no anchors are used, this value is 1).
+Please notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`slice_fn=od.grid.SliceOnlyCenterBbox()`), and the bounding box would specify the center offset and size (`'bboxes': od.grid.SetCenterSizeBboxesOnce()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object is placed on all locations it touches, and the bounding box would be set relative (as in the previous code).
 
-```python
-grid_transform = od.grid.Transform((8, 8), None, ['classes'])
-datum = grid_transform(datum)
-print(datum.keys())
-```
-
-```
-dict_keys(['image', 'confs_grid', 'bboxes_grid', 'classes_grid'])
-```
-
-We recommend applying grid transformations in the Dataset class itself. We also provide some data augmentation routines (more on that below).
+Furthermore, we could have produced multiple grids -- this is useful for two types of models: (i) [YOLOv3](https://arxiv.org/abs/1804.02767) where each grid has differing anchors, (ii) [FCOS](https://arxiv.org/abs/1904.01355) where each grid has a different resolution. For that purpose, you could simply apply different grid outputs. You may take advantage of the filtering function to select objects according to your anchors or according to the grid-scale where they fit.
 
 ```python
-transform = od.aug.Resize((256, 256))
-tr = od.datasets.VOCDetection('data', 'train', download, transform, grid_transform)
+transform = od.aug.Compose(
+    od.aug.ResizeAndNormalize(256, 256),
+    od.grid.Transform(grid_size1, filter_function1, slicing_function1, create_grids1, map_grids1)
+    od.grid.Transform(grid_size2, filter_function2, slicing_function2, create_grids2, map_grids2)
+    ...
+)
 ```
 
-Just for illustration purposes we have a debug function to plot the grid directly (if no anchors are used, otherwise it shows only the objects for the first anchor):
+**Model:** As typically done, we split the model into backend and heads. The backend should produce the same number of outputs as the number of grids, and with the same HxW shape. The heads should have the same key as the respective grid.
+
+Our `SimpleBackend()` just applies successive stride-2 convolutions for the same number of times as the given list, and outputs those layers specified as `True`. You might want to use a pre-trained architecture.
 
 ```python
-plt.imshow(datum['image'])
-od.plot.grid_without_anchors(datum['image'], datum['confs_grid'], datum['bboxes_grid'])
-plt.show()
-```
-
-![Grid debug plot](imgs/grid.png)
-
-The grid transformation is used for training and then you invert the grid back before plotting or applying metrics. The grid transformation uses the bounding-box format `(xc, yc, log(w), log(h))`, as done [in yolo](https://arxiv.org/abs/1804.02767) and other papers. (Notice that the inversion function receives images in batch format since it is typically used on the network outputs, and returns a list with each datum.)
-
-```python
-batch = {k: v[None] for k, v in datum.items()}
-inv_datum = grid_transform.inv(batch)[0]
-
-plt.imshow(datum['image'])
-od.plot.datum(plt.gca(), inv_datum, labels, 'b')
-plt.show()
-```
-
-![Bounding boxes inversion debug plot](imgs/bboxes-inv.png)
-
-### models
-
-To build the model we recommend defining the backbone and head separately. The head must output keys that match those from the grid transform (`confs_grid`, `bboxes_grid`, and possibly others, such as `classes_grid`).
-
-We provide simple models that you may use, but you should consider using a pre-trained backbone from torchvision.
-
-```python
-backbone = od.models.Backbone((256, 256, 3), (8, 8))
-head = od.models.HeadWithClasses(backbone.n_outputs, 1, len(labels))
-model = od.models.Model(backbone, head).cuda()
+backbone = od.models.SimpleBackbone([False]*4 + [True])
+heads = [{'hasobjs': od.models.HeadHasObjs(512), 'classes': od.models.HeadClasses(512, 20), 'bboxes': od.models.HeadExpBboxes(512)}]
+model = od.models.Model(backbone, heads)
+model = model.cuda()
 ```
 
 ![Model illustration](imgs/model.svg)
 
-The values in <span style="color:red">red</span> are the anchors (more about that below). In this case, we are not going to use anchors, so they are 1.
-
-### aug
-
-For data augmentation, you may use [Albumentations](https://albumentations.ai/) or our routines or another package. We provide some basic augmentation functions. The API is also based on dictionaries and should be compatible with Albumentations.
+**Train:** Our training functions bind data/predictions/losses together using the keys. We must also specify a weight function for each loss so that only when an object exists is the model penalized. For that reason, the loss functions must produce the unaltered result for each grid location (`reduction='none'`).
 
 ```python
-transform = od.aug.Compose(
-    od.aug.Resize((282, 282)), od.aug.RandomCrop((256, 256)),
-    od.aug.RandomHflip(), od.aug.RandomBrightnessContrast(0.1, 0)
-)
-tr = od.datasets.VOCDetection('data', 'train', download, transform, grid_transform)
-```
-
-### loop
-
-We provide convenience functions for training. Losses must be a dictionary with the same keys as the previous ones.
-
-```python
-from torch.utils.data import DataLoader
 import torch
-
-tr = DataLoader(tr, 128, True, num_workers=2)
+tr = torch.utils.data.DataLoader(ds, 32, True, num_workers=6)
 opt = torch.optim.Adam(model.parameters())
-losses = {
-    'confs_grid': torch.nn.BCEWithLogitsLoss(reduction='none'),
-    'bboxes_grid': torch.nn.MSELoss(reduction='none'),
-    'classes_grid': torch.nn.CrossEntropyLoss(reduction='none'),
+
+weight_loss_fns = {
+    'hasobjs': lambda data: 1,
+    'bboxes': lambda data: data['hasobjs'],
+    'classes': lambda data: data['hasobjs'],
 }
-od.loop.train(model, tr, opt, losses, 100)
-torch.save(model, 'model.pth')
+loss_fns = {
+    'hasobjs': torch.nn.BCEWithLogitsLoss(reduction='none'),
+    'classes': torch.nn.CrossEntropyLoss(reduction='none'),
+    'bboxes':  od.losses.ConvertRel2Abs(od.losses.GIoU(False)),
+}
+
+od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100)
 ```
 
-For better results, you may need to train for much longer epochs and possibly use a [focal loss](https://pytorch.org/vision/stable/_modules/torchvision/ops/focal_loss.html) (like in RetinaNet) to cope with the natural object imbalance.
+(In this specific case, we have applied a conversion on the bounding boxes because `GIoU` requires absolute bounding boxes and we are predicting bounding boxes relative to each location.)
 
-After the model has been trained, we can predict the objects:
+**Evaluation:** Akin to the training loop, there is an evaluation loop, which simply concatenates all the data and predictions into two lists.
 
 ```python
-transform = od.aug.Resize((282, 282))
-ts = od.datasets.VOCDetection('data', 'val', download, transform, grid_transform)
-ts = DataLoader(ts, 128, num_workers=2)
-inputs, preds = od.loop.evaluate(model, ts, grid_transform)
+inputs, outputs = od.loop.eval(tr, model)
 ```
 
+The grids produced by the model must be inverted. For that several methods are provided (`inv_grid`). Furthermore, a filter function must be provided to choose which objects are to be selected (typically, those with P≥0.5).
+
 ```python
-import matplotlib.pyplot as plt
-for i in range(12):
-    plt.subplot(2, 6, i+1)
-    plt.imshow(inputs[i]['image'])
-    od.plot.datum(plt.gca(), inputs[i], labels, 'b')
-    od.plot.datum(plt.gca(), preds[i], labels, 'g', '--')
+inv_transforms = od.inv_grid.InvTransform(
+    lambda datum: datum['hasobjs'][0] >= 0.5,
+    {'hasobjs': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes()}
+)
+
+
+
+inv_transforms = od.inv_grid.InvTransform(
+    lambda datum: datum['hasobjs'][0] >= 0.5,
+    {'hasobjs': od.inv_grid.InvScoresWithClasses('classes'), 'classes': od.inv_grid.InvClasses(), 'bboxes': od.inv_grid.InvRelBboxes()}
+)
+```
+
+We may now use metrics or visualize the results. You may want to apply non-maximum suppression for best results, especially when using such generous slicing as we have used here.
+
+```python
+import numpy as np
+i = np.random.choice(len(outputs))
+plt.imshow(inputs[i]['image'])
+inv_outputs = inv_transforms(outputs[i])
+inv_bboxes, inv_classes = od.post.NMS(inv_outputs['hasobjs'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
+od.plot.bboxes(inputs[i]['image'], inv_bboxes)
+od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)
 plt.show()
 ```
 
-![Model predictions output](imgs/preds.png)
+![Model output example](imgs/output.png)
 
-### post
+The result is not very good because we are using a very crude backbone. Furthermore, losses could be improved, e.g. using focal sigmoid loss like RetineNet instead of BCE, or predicting "centerness" like FCOS, amongst other possible optimizations.
 
-As commonly done, you may use a post-processing algorithm, such as Non-Maximum Suppression (NMS), to reduce the number of false bounding boxes.
-
-```python
-for pred in preds:
-    pred['bboxes'], pred['classes'] = od.post.NMS(pred['confs'], pred['bboxes'], pred['classes'])
-```
+When using multiple grids, then the method `od.inv_grid.MultiLevelInvTransform()` should be used where dependencies are specified on what multiple grids should be used to produce the final grid (e.g., `dependencies={'bboxes': ['bboxes1', 'bboxes2', ...]}`.
 
 ```python
-import matplotlib.pyplot as plt
-for i in range(12):
-    plt.subplot(2, 6, i+1)
-    plt.imshow(inputs[i]['image'])
-    od.plot.datum(plt.gca(), inputs[i], labels, 'r', '-')
-    od.plot.datum(plt.gca(), preds[i], labels, 'g', '--')
-plt.show()
-```
-
-![Model predictions output](imgs/preds-nms.png)
-
-### metrics
-
-Our framework also has the common AP metric based on precision-recall.
-
-```python
-precision, recall = od.metrics.precision_recall_curve(preds['confs'], inputs['bboxes'], preds['bboxes'], 0.5)
+inv_inputs = [inv_transforms(i) for i in inputs]
+inv_outputs = [inv_transforms(o) for o in outputs]
+precision, recall = od.metrics.precision_recall_curve([o['hasobjs'] for o in inv_outputs], [i['bboxes'] for i in inv_inputs], [o['bboxes'] for o in inv_outputs], 0.5)
 plt.plot(precision, recall)
 plt.show()
 ```
 
-FIGURE TO DO
+![Precision-recall curve](imgs/precision-recall-curve.png)
 
-```python
-print('AP:', od.metrics.AP(preds['confs'], inputs['bboxes'], preds['bboxes'], 0.5))
-```
+## Citation
 
-```
-TO DO
-```
-
-### anchors
-
-The framework also supports anchors. To compute the anchors, you may use our utility which uses KMeans. For example, if you want to find the best 9 anchors:
-
-```python
-tr = od.datasets.VOCDetection('data', 'train', False, None, None)
-anchors = od.anchors.compute_clusters(tr, 9)
-```
-
-For debugging purposes, we can plot them:
-
-```python
-od.plot.anchors(anchors)
-plt.show()
-```
-
-![Best anchors found for Pascal VOC](imgs/anchors.png)
-
-## Citing objdetect
-
-```
+```bib
 @misc{objdetect,
   author = {Ricardo Cruz},
   title = {{ObjDetect package}},

@@ -1,83 +1,85 @@
-import numpy as np
-import torch
-from torch import nn
+'''
+These are just simple implementations of possible backbones and heads. You might want to use a more complex pre-trained backbone. The models must produce grids that are then contrasted against the true grids.
+'''
+
 from torch.nn import functional as F
+from torch import nn
+import torch
+import numpy as np
 
-'''
-These are just simple implementations of possible backbones and heads. You might
-want to use a more complex pre-trained backbone.
-
-The neural network must produce a grid with, at least, the confidence of there
-being an object at that cell (confs_grid) and the respective bounding box
-(bboxes_grid) in the form of a dictionary.
-
-The output shapes must be (grid_height, grid_width, n_anchors, n_something)
-where n_something is what you want to predict. If you do not use anchors, just
-specify n_anchors=1.
-
-In the default models, if the model is in train-mode, then we do not apply any
-sigmoid or softmax activation function, because logits are more numerical
-stable.
-'''
-
-class Backbone(nn.Module):
-    def __init__(self, img_size, grid_size):
+class SimpleBackbone(nn.Module):
+    '''Very simple backbone. Applies convolutions with stride-2 for how many times as length of the given list. Furthermore, it outputs the result of those layers where the list is true. You may want to use a pre-trained architecture instead.'''
+    def __init__(self, output_levels):
         super().__init__()
-        assert img_size[0] % grid_size[0] == 0, f'Image size ({img_size[0]}) must be multiple of grid size ({grid_size[0]})'
-        assert img_size[0] // grid_size[0] == img_size[1] // grid_size[1], f'Proportion between image size ({img_size[0]}x{img_size[1]}) must be the same relative to grid size ({grid_size[0]}x{grid_size[1]})'
-        n = int(np.log2(img_size[0] // grid_size[0]))
+        prev, next = 3, 32
         self.layers = nn.ModuleList()
-        prev, next = img_size[2], 32
-        for _ in range(n):
+        self.output_levels = output_levels
+        for _ in range(len(output_levels)):
             self.layers.append(nn.Conv2d(prev, next, 3, 2, 1))
             prev, next = next, next*2
-        self.n_outputs = prev
 
     def forward(self, x):
-        for layer in self.layers:
-            x = F.relu(layer(x))
+        outs = []
+        for layer, out in zip(self.layers, self.output_levels):
+            x = layer(x)
+            if out:
+                outs.append(x)
+            x = F.relu(x)
+        return outs
+
+class HeadHasObjs(nn.Module):
+    '''Produces a 1xHxW output. If in eval mode, then a sigmoid is applied.'''
+    def __init__(self, ninputs):
+        super().__init__()
+        self.conv = nn.Conv2d(ninputs, 1, 1)
+
+    def forward(self, x):
+        x = self.conv(x)
+        if not self.training:
+            return torch.sigmoid(x)
         return x
 
-class Head(nn.Module):
-    def __init__(self, n_inputs, n_anchors):
+class HeadExpBboxes(nn.Module):
+    '''Produces a 4xHxW output with exp applied to force the values to be positive.'''
+    def __init__(self, ninputs):
         super().__init__()
-        assert n_anchors >= 1, 'n_anchors ({n_anchors}) must be at least 1'
-        self.has_conv = nn.Conv2d(n_inputs, n_anchors*1, 1)
-        self.bbox_conv = nn.Conv2d(n_inputs, n_anchors*4, 1)
-        self.n_anchors = n_anchors
+        self.conv = nn.Conv2d(ninputs, 4, 1)
 
     def forward(self, x):
-        h = self.has_conv(x)
-        h = h.view(h.shape[0], 1, self.n_anchors, h.shape[2], h.shape[3])
-        if not self.training:
-            h = torch.sigmoid(h)
-        b = self.bbox_conv(x)
-        b = b.view(b.shape[0], 4, self.n_anchors, b.shape[2], b.shape[3])
-        b[:, 0] = torch.sigmoid(b[:, 0])
-        b[:, 1] = torch.sigmoid(b[:, 1])
-        return {'confs_grid': h, 'bboxes_grid': b}
+        x = self.conv(x)
+        return torch.exp(x)
 
-class HeadWithClasses(Head):
-    def __init__(self, n_inputs, n_anchors, n_classes):
-        super().__init__(n_inputs, n_anchors)
-        self.classes_conv = nn.Conv2d(n_inputs, n_anchors*n_classes, 1)
-        self.n_classes = n_classes
+class HeadCenterSizeBboxes(nn.Module):
+    '''Produces a 4xHxW output with sigmoids applied to the first two values (that is, the center of the bounding box).'''
+    def __init__(self, ninputs):
+        super().__init__()
+        self.conv = nn.Conv2d(ninputs, 4, 1)
 
     def forward(self, x):
-        outputs = super().forward(x)
-        y = self.classes_conv(x)
-        y = y.view(y.shape[0], self.n_classes, self.n_anchors, y.shape[2], y.shape[3])
-        if not self.training:
-            y = F.softmax(y, 1)
-        outputs['classes_grid'] = y
-        return outputs
+        bb = self.conv(x)
+        bb[:, 0] = torch.sigmoid(bb[:, 0])
+        bb[:, 1] = torch.sigmoid(bb[:, 1])
+        return bb
 
-class Model(nn.Module):  # same as before
-    def __init__(self, backbone, head):
+class HeadClasses(nn.Module):
+    '''Produces a KxHxW, where K is the number of classes. If in eval mode, then a softmax is applied.'''
+    def __init__(self, ninputs, nclasses):
+        super().__init__()
+        self.conv = nn.Conv2d(ninputs, nclasses, 1)
+
+    def forward(self, x):
+        x = self.conv(x)
+        if not self.training:
+            x = F.softmax(x, 1)
+        return x
+
+class Model(nn.Module):
+    '''Combines a backbone with a list of dictionaries of heads. The reason why a list is used is because the backbone may produce multiple grids.''' 
+    def __init__(self, backbone, multi_heads):
         super().__init__()
         self.backbone = backbone
-        self.head = head
+        self.multi_heads = nn.ModuleList([nn.ModuleDict(heads) for heads in multi_heads])
 
     def forward(self, x):
-        x = self.backbone(x)
-        return self.head(x)
+        xs = self.backbone(x)
+        return {name: h(x) for x, heads in zip(xs, self.multi_heads) for name, h in heads.items()}

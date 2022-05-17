@@ -1,136 +1,155 @@
+'''
+In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid.
+'''
+
 import numpy as np
 
-'''
-In one-shot object detection, we need to transform the input onto a grid to
-compare against the neural network output which also produces a grid. Our grid
-shapes follow the dimensions: (N, Nf, Na, H, W) where Nf=number of features
-(e.g., Nf=4 for bboxes) and Na=number of anchors (for consistency, even if there
-are no anchors, this dimension exists, but has the value of 1).
+def SliceAcrossCeilBbox():
+    '''Choose all grid locations that contain the entirety of the object (similar to FCOS).'''
+    def f(h, w, bbox):
+        yy = slice(int(np.ceil(bbox[1]*h)), int(np.ceil(bbox[3]*h)))
+        xx = slice(int(np.ceil(bbox[0]*w)), int(np.ceil(bbox[2]*w)))
+        return yy, xx
+    return f
 
-These utilities transform the given datum (which is a dictionary, as defined in
-datasets.py) with another dictionary containing 'confs_grid' and 'bboxes_grid',
-possibly other keys too, to the dictionary. The original keys are not retained
-to make it possible to use the default dataloader collate which converts the
-datum onto tensors. An inverse function is also provided to convert the network
-outputs back to the original domain.
+def SliceOnlyCenterBbox():
+    '''Place the object only on the center location of the object (similar to YOLOv3).'''
+    def f(h, w, bbox):
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        x = int(xc*w)
+        y = int(yc*h)
+        return slice(y, y+1), slice(x, x+1)
+    return f
 
-If you do not use anchors, just specify anchors=None. For generability, the
-shapes of the returned arrays will always contain one dimension of size 1, which corresponds to the anchors, even if none exists.
-'''
+###########################################################
 
-class Transform:
-    def __init__(self, grid_size, anchors, extra_keys=[]):
-        self.grid_size = grid_size
-        self.anchors = anchors
-        self.extra_keys = extra_keys
+def SizeFilter(min_cells, max_cells):
+    '''Filter objects whose size is within [`min_cells`, `max_cells`] (the FCOS paper recommends [4, 8]).'''
+    def f(h, w, bbox):
+        xcells = (bbox[2]-bbox[0]) * w
+        ycells = (bbox[3]-bbox[1]) * h
+        return min_cells <= xcells <= max_cells
+    return f
 
-    def __call__(self, datum):
-        return grid_transform(datum, self.grid_size, self.anchors, self.extra_keys)
+def compute_clusters(ds, n):
+    '''Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.'''
+    from sklearn.cluster import KMeans
+    BB = [d['bboxes'] for d in ds]
+    BB = [(b[2], b[3]) for bb in BB for b in bb]
+    return KMeans(n).fit(BB).cluster_centers_
 
-    def inv(self, data, confidence_threshold=0.5):
-        # unlike the previous method, this receives a batch, not a single datum
-        return inv_grid_transform(data, self.grid_size, self.anchors, confidence_threshold)
+def AnchorFilter(anchor, min_iou):
+    '''Filter only objects with ≥IoU of a given `anchor`.'''
+    import metrics
+    def f(h, w, bbox):
+        xc = (bbox[0]+bbox[2]) / 2
+        yc = (bbox[1]+bbox[3]) / 2
+        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
+            xc+anchor[0]/2, yc+anchor[1]/2)
+        return IoU(bbox, anchor_box) >= min_iou
+    return f
 
-# in the future, we may want to speed-up this code by using numba
-# unfortunately, numba does not support python dictionaries
+###########################################################
 
-def grid_transform(datum, grid_size, anchors, extra_keys):
-    n_anchors = 1 if anchors is None else len(anchors)
-    H_grid = np.zeros((1, n_anchors, *grid_size), np.float32)
-    B_grid = np.zeros((4, n_anchors, *grid_size), np.float32)
-    ret_datum = {'image': datum['image'], 'confs_grid': H_grid,
-        'bboxes_grid': B_grid}
+def NewHasObj():
+    '''Grid 1xhxw.'''
+    def f(h, w):
+        return np.zeros((1, h, w), np.float32)
+    return f
 
-    # convert also any key that is in extra_keys. other keys, just pass them
-    for key in datum.keys() - {'image', 'confs', 'bboxes'}:
-        if key in extra_keys:
-            ret_datum[key + '_grid'] = np.zeros((1, n_anchors, *grid_size), datum[key].dtype)
-        else:
-            ret_datum[key] = datum[key]
+def NewBboxes():
+    '''Grid 4xhxw.'''
+    def f(h, w):
+        return np.zeros((4, h, w), np.float32)
+    return f
 
-    for bi, b in enumerate(datum['bboxes']):
-        xc = (b[0]+b[2]) / 2
-        yc = (b[1]+b[3]) / 2
-        if anchors is None:
-            ai = 0
-            size = (1, 1)
-        else:  # which anchor?
-            ai = ((anchors[:, 0]-xc)**2 + (anchors[:, 1]-yc)**2).mean(0).argmin()
-            size = anchors[ai]
-        gx = int(xc // (1/grid_size[0]))
-        gy = int(yc // (1/grid_size[1]))
-        offset_x = (xc % (1/grid_size[0])) * grid_size[0]
-        offset_y = (yc % (1/grid_size[1])) * grid_size[1]
-        H_grid[0, ai, gy, gx] = 1
-        B_grid[0, ai, gy, gx] = offset_x
-        B_grid[1, ai, gy, gx] = offset_y
-        B_grid[2, ai, gy, gx] = np.log((b[2]-b[0]) / size[0])
-        B_grid[3, ai, gy, gx] = np.log((b[3]-b[1]) / size[1])
-        for key in extra_keys:
-            ret_datum[key + '_grid'][0, ai, gy, gx] = datum[key][bi]
-    return ret_datum
+def NewClasses():
+    '''Grid hxw.'''
+    def f(h, w):  # CrossEntropyLoss needs (h, w), not (1, h, w)
+        return np.zeros((h, w), np.int64)
+    return f
 
-def inv_grid_transform(data, grid_size, anchors, confidence_threshold):
-    # unlike the previous method, this receives a batch, not a single datum
-    assert 'confs_grid' in data, 'Must contain at least one grid'
-    if anchors is None:
-        anchors = [(1, 1)]
-    cell_size = (1 / grid_size[0], 1 / grid_size[1])
-    ret = []
-    extra_keys = data.keys() - {'bboxes_grid', 'confs_grid'}
-    for i in range(len(data['confs_grid'])):
-        bboxes = []
-        confs = []
-        ret_datum = {'bboxes': bboxes, 'confs': confs}
+NewCenterness = NewHasObj
 
-        # convert also any key that is in extra_keys. other keys, just pass them
-        for key in extra_keys:
-            if key.endswith('_grid'):
-                ret_datum[key[:-5]] = []
-            else:
-                ret_datum[key] = data[key][i]
+###########################################################
 
-        ret.append(ret_datum)
-        for gx in range(grid_size[0]):
-            for gy in range(grid_size[1]):
-                for ai, anchor in enumerate(anchors):
-                    # maybe we should multiply by class confidence here too
-                    conf = data['confs_grid'][i, 0, ai, gy, gx]
-                    if conf >= confidence_threshold:
-                        offset_x, offset_y, log_w, log_h = data['bboxes_grid'][i, :, ai, gy, gx]
-                        xc = (gx+offset_x)*cell_size[0]
-                        yc = (gy+offset_y)*cell_size[1]
-                        w = anchor[0]*np.exp(log_w)
-                        h = anchor[1]*np.exp(log_h)
-                        xmin = xc - w/2
-                        ymin = yc - h/2
-                        xmax = xmin + w
-                        ymax = ymin + h
-                        bboxes.append((xmin, ymin, xmax, ymax))
-                        if 'classes_grid' in data:
-                            # classes conversion is a special case
-                            if data['classes_grid'].shape[1] == 1:
-                                _class = data['classes_grid'][i, 0, ai, gy, gx]
-                            else:
-                                pclass = data['classes_grid'][i, :, ai, gy, gx].max()
-                                conf *= pclass
-                                _class = data['classes_grid'][i, :, ai, gy, gx].argmax()
-                            ret_datum['classes'].append(int(_class))
-                        for key in extra_keys:
-                            if key.endswith('_grid') and key != 'classes_grid':
-                                ret_datum[key[:-5]].append(data[key][i, 0, ai, gy, gx])
-                        confs.append(conf)
-    return ret
+def SetHasObj():
+    '''Sets 1 wherever the object is, according to the given slicing.'''
+    def f(grid, yy, xx, datum, i):
+        grid[:, yy, xx] = 1
+    return f
 
-if __name__ == '__main__':  # debug: apply a transform and an inverse
-    import datasets, plot
-    tr = datasets.VOCDetection('../../data', 'train', False, None, None)
-    datum = tr[0]
-    t = Transform((8, 8), None, ['classes'])
-    datum = t(datum)
-    batch = {k: v[None] for k, v in datum.items()}
-    inv_datum = t.inv(batch)[0]
-    import matplotlib.pyplot as plt
-    plt.imshow(datum['image'])
-    plot.bboxes_with_classes(datum['image'], inv_datum['bboxes'], inv_datum['classes'], tr.labels, 'blue')
-    plt.show()
+def SetCenterSizeBboxesOnce():
+    '''Sets 1 on the object center location.'''
+    def f(grid, yy, xx, datum, i):
+        bbox = datum['bboxes'][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
+        grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+    return f
+
+def SetRelBboxes():
+    '''For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
+    def f(grid, yy, xx, datum, i):
+        bbox = datum['bboxes'][i]
+        _, h, w = grid.shape
+        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        grid[0, yy, xx] = (_xx/w) - bbox[0]
+        grid[1, yy, xx] = (_yy/h) - bbox[1]
+        grid[2, yy, xx] = bbox[2] - (_xx/w)
+        grid[3, yy, xx] = bbox[3] - (_yy/h)
+    return f
+
+def SetClasses():
+    '''Sets the respective class wherever the object is, according to the given slicing.'''
+    def f(grid, yy, xx, datum, i):
+        klass = datum['classes'][i]
+        grid[yy, xx] = klass
+    return f
+
+def SetCenterness():
+    '''Sets the distance to the object for each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
+    def f(grid, yy, xx, datum, i):
+        bbox = datum['bboxes'][i]
+        _, h, w = grid.shape
+        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        L = (_xx/w) - bbox[0]
+        T = (_yy/h) - bbox[1]
+        R = bbox[2] - (_xx/w)
+        B = bbox[3] - (_yy/h)
+        factor1 = np.minimum(L, R)/np.maximum(L, R)
+        factor2 = np.minimum(T, B)/np.maximum(T, B)
+        return np.sqrt(factor1 * factor2)
+    return f
+
+###########################################################
+
+def RemoveKeys(keys):
+    '''Removing keys in the transform is useful whenever you want to reject some keys to go to the data loader.'''
+    keys = frozenset(keys)
+    def f(**datum):
+        return {k: v for k, v in datum.items() if k not in keys}
+    return f
+
+def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
+    '''Applies the others methods to build the respective grids.'''
+    def f(**datum):
+        h, w = grid_size
+        grids = {name: f(h, w) for name, f in new_grid_dict.items()}
+        for i, bbox in enumerate(datum['bboxes']):
+            if filter_fn != None and not filter_fn(h, w, bbox):
+                continue
+            yy, xx = slice_fn(h, w, bbox)
+            for name, f in set_grid_dict.items():
+                f(grids[name], yy, xx, datum, i)
+        return {**datum, **grids}
+    return f
+
+def merge_dicts(l):
+    '''Utility function that concatenates a list of dictionaries into a single dictionary, useful for multi-level dictionaries.'''
+    return {k: v for d in l for k, v in d.items()}
