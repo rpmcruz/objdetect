@@ -32,7 +32,7 @@ The package is divided into the following components:
 
 This package relies heavily on two things: (i) dictionaries to bind everything together (grid/model/loss/etc), and (ii) function closures to decompose functionality into smaller parts.
 
-**Grid:* When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). We recommend doing it as the final step of the data augmentation pipeline. Doing it this way takes advantage of DataLoader parallelization. For the transformation pipeline, we provide methods that function similarly to the [albumentations package](https://albumentations.ai/), and, in fact, should be compatible with it so that you may use albumentations if you wish.
+**Grid:** When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). We recommend doing it as the final step of the data augmentation pipeline. Doing it this way takes advantage of DataLoader parallelization. For the transformation pipeline, we provide methods that function similarly to the [albumentations package](https://albumentations.ai/), and, in fact, should be compatible with it so that you may use albumentations if you wish.
 
 Let us build three grids specifying whether an object is occupying the given location (`hasobjs`), the classes grid (`classes`), and the bounding boxes information grid (`bboxes`).
 
