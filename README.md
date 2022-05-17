@@ -74,6 +74,7 @@ for k, v in d.items():
 Output:
 
 ```
+contains: dict_keys(['image', 'bboxes', 'classes', 'hasobjs'])
 image (256, 256, 3)
 bboxes (4, 8, 8)
 classes (8, 8)
