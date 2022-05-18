@@ -28,7 +28,7 @@ The package is divided into the following components:
 
 ## Getting Started
 
-Two model examples are provided in the `src` folder.
+Two examples are provided in the `src` folder.
 
 This package relies heavily on two things: (i) dictionaries to bind everything together (grid/model/loss/etc), and (ii) function closures to decompose functionality into smaller parts.
 
