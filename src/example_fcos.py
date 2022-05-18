@@ -1,5 +1,6 @@
 '''
 This should be seen as a demonstration of how a model such as FCOS *could* be implemented, but this lacks quite a few things to be a perfect duplication.
+FCOS paper: https://arxiv.org/abs/1904.01355
 '''
 
 from torch.utils.data import DataLoader
