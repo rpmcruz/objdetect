@@ -110,7 +110,7 @@ transform = od.aug.Compose(
 
 **Model:** As typically done, we split the model into backend and heads. The backend should produce the same number of outputs as the number of grids, and with the same HxW shape. The heads should have the same key as the respective grid.
 
-Our `SimpleBackend()` just applies successive stride-2 convolutions for the same number of times as the given list, and outputs those layers specified as `True`. You might want to use a pre-trained architecture.
+Our `SimpleBackend()` just applies successive stride-2 convolutions for the same number of times as the given list, and outputs those layers specified as `True`. It's useful for small things, but we recommend using a [pre-trained architecture](https://pytorch.org/vision/stable/models.html) for best performance.
 
 ```python
 backbone = od.models.SimpleBackbone([False]*4 + [True])
