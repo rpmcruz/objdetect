@@ -1,5 +1,6 @@
 '''
 This should be seen as a demonstration of how a model such as YOLOv3 *could* be implemented, but it *should* not be seen as a perfect duplication. Most evidently, this lacks anchors.
+YOLOv3 paper: https://arxiv.org/abs/1804.02767
 '''
 
 from torch.utils.data import DataLoader
