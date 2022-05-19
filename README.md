@@ -5,6 +5,15 @@ Lightweight and versatile one-stage object detection framework.
 
 I am a post-doc at FEUP (University of Porto) working on perception for autonomous driving ([THEIA project](https://noticias.up.pt/u-porto-bosch-projeto-de-investigacao-28-milhoes-de-euros/)). I developed this one-stage object detection framework because existing frameworks, such as [detectron2](https://github.com/facebookresearch/detectron2), are either for two-stage models or are not versatile and simple enough to adapt for new models. At the very least, I hope this package is educational for someone learning object detection. Contact: [Ricardo Cruz](mailto:rpcruz@fe.up.pt).
 
+Functionality:
+* Pre-processing pipeline: data augmentation, grid transformations
+* Support for multiple grids: anchors and multi-scale
+* Model heads, training and evaluation routines
+* Some extra losses
+* Post-processing: grid inversion, non-maximum suppression
+* Plot utilities
+* Metrics: precision-recall curve, AP
+
 ## Install
 
 ```
