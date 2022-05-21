@@ -77,7 +77,7 @@ class CocoDetection(Dataset):
             datum = self.my_transform(**datum)
         return datum
 
-class KITTI(Dataset):
+class KITTIDetection(Dataset):
     '''The [KITTI](http://www.cvlibs.net/datasets/kitti/) self-driving dataset.'''
 
     labels = ['Car', 'Cyclist', 'Pedestrian', 'Person_sitting', 'Tram', 'Truck', 'Van', 'Misc', 'DontCare']
