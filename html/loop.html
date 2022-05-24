@@ -34,7 +34,7 @@ Convenience functions for the training and evaluation loops.
 import torch
 from time import time
 
-def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
+def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None):
     &#39;&#39;&#39;Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.&#39;&#39;&#39;
     device = next(model.parameters()).device
 
@@ -71,6 +71,9 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
             avg_loss += float(loss) / len(tr)
         toc = time()
         print(f&#39;- {toc-tic:.1f}s - Avg loss: {avg_loss} - &#39; + &#39; - &#39;.join(f&#39;{name} loss: {avg}&#39; for name, avg in avg_losses.items()))
+        if stop_condition and stop_condition(avg_loss):
+            print(&#39;Stopping due to criteria&#39;)
+            break
 
 def eval(ts, model):
     &#39;&#39;&#39;Evaluates the model.&#39;&#39;&#39;
@@ -86,7 +89,21 @@ def eval(ts, model):
         n = X.shape[0]
         inputs += [{k: v[i].numpy() for k, v in data.items()} for i in range(n)]
         outputs += [{k: v[i].detach().cpu().numpy() for k, v in preds.items()} for i in range(n)]
-    return inputs, outputs</code></pre>
+    return inputs, outputs
+
+class StopPatience:
+    def __init__(self, patience=10):
+        self.patience = patience
+        self.counter = 0
+        self.min_loss = float(&#39;inf&#39;)
+
+    def __call__(self, loss):
+        if loss &lt; self.min_loss:
+            self.min_loss = loss
+            self.counter = 0
+        else:
+            self.counter += 1
+        return self.counter &gt;= self.patience</code></pre>
 </details>
 </section>
 <section>
@@ -123,7 +140,7 @@ def eval(ts, model):
 </details>
 </dd>
 <dt id="loop.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>tr, model, opt, weight_loss_fns, loss_fns, epochs)</span>
+<span>def <span class="ident">train</span></span>(<span>tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Trains the model. <code>weight_loss_fns</code> and <code>loss_fns</code> are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.</p></div>
@@ -131,7 +148,7 @@ def eval(ts, model):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
+<pre><code class="python">def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None):
     &#39;&#39;&#39;Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.&#39;&#39;&#39;
     device = next(model.parameters()).device
 
@@ -167,12 +184,43 @@ def eval(ts, model):
             opt.step()
             avg_loss += float(loss) / len(tr)
         toc = time()
-        print(f&#39;- {toc-tic:.1f}s - Avg loss: {avg_loss} - &#39; + &#39; - &#39;.join(f&#39;{name} loss: {avg}&#39; for name, avg in avg_losses.items()))</code></pre>
+        print(f&#39;- {toc-tic:.1f}s - Avg loss: {avg_loss} - &#39; + &#39; - &#39;.join(f&#39;{name} loss: {avg}&#39; for name, avg in avg_losses.items()))
+        if stop_condition and stop_condition(avg_loss):
+            print(&#39;Stopping due to criteria&#39;)
+            break</code></pre>
 </details>
 </dd>
 </dl>
 </section>
 <section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="loop.StopPatience"><code class="flex name class">
+<span>class <span class="ident">StopPatience</span></span>
+<span>(</span><span>patience=10)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StopPatience:
+    def __init__(self, patience=10):
+        self.patience = patience
+        self.counter = 0
+        self.min_loss = float(&#39;inf&#39;)
+
+    def __call__(self, loss):
+        if loss &lt; self.min_loss:
+            self.min_loss = loss
+            self.counter = 0
+        else:
+            self.counter += 1
+        return self.counter &gt;= self.patience</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -185,6 +233,13 @@ def eval(ts, model):
 <ul class="">
 <li><code><a title="loop.eval" href="#loop.eval">eval</a></code></li>
 <li><code><a title="loop.train" href="#loop.train">train</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="loop.StopPatience" href="#loop.StopPatience">StopPatience</a></code></h4>
+</li>
 </ul>
 </li>
 </ul>

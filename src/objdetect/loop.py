@@ -5,7 +5,7 @@ Convenience functions for the training and evaluation loops.
 import torch
 from time import time
 
-def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
+def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None):
     '''Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.'''
     device = next(model.parameters()).device
 
@@ -42,6 +42,9 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs):
             avg_loss += float(loss) / len(tr)
         toc = time()
         print(f'- {toc-tic:.1f}s - Avg loss: {avg_loss} - ' + ' - '.join(f'{name} loss: {avg}' for name, avg in avg_losses.items()))
+        if stop_condition and stop_condition(avg_loss):
+            print('Stopping due to criteria')
+            break
 
 def eval(ts, model):
     '''Evaluates the model.'''
@@ -58,3 +61,17 @@ def eval(ts, model):
         inputs += [{k: v[i].numpy() for k, v in data.items()} for i in range(n)]
         outputs += [{k: v[i].detach().cpu().numpy() for k, v in preds.items()} for i in range(n)]
     return inputs, outputs
+
+class StopPatience:
+    def __init__(self, patience=10):
+        self.patience = patience
+        self.counter = 0
+        self.min_loss = float('inf')
+
+    def __call__(self, loss):
+        if loss < self.min_loss:
+            self.min_loss = loss
+            self.counter = 0
+        else:
+            self.counter += 1
+        return self.counter >= self.patience
