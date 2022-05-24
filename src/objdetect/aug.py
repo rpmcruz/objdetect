@@ -46,7 +46,7 @@ def RandomCrop(crop_H, crop_W):
             np.minimum((bboxes[:, 3]*orig_H - j)/crop_H, 1)
         ), -1)
         # filter only bounding boxes inside the view
-        bboxes = bboxes[np.logical_and(b[:, 0] < b[:, 2], b[:, 1] < b[:, 3])]
+        bboxes = bboxes[np.logical_and(bboxes[:, 0] < bboxes[:, 2], bboxes[:, 1] < bboxes[:, 3])]
         return {'image': image, 'bboxes': bboxes, **data}
     return f
 
