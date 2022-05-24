@@ -38,7 +38,7 @@ def RandomCrop(crop_H, crop_W):
         orig_H, orig_W, _ = image.shape
         i = np.random.randint(0, orig_H-crop_H)
         j = np.random.randint(0, orig_W-crop_W)
-        image = image[j:j+crop_H, i:i+crop_W]
+        image = image[i:i+crop_H, j:j+crop_W]
         bboxes = np.stack((
             np.maximum((bboxes[:, 0]*orig_W - i)/crop_W, 0),
             np.maximum((bboxes[:, 1]*orig_H - j)/crop_H, 0),
