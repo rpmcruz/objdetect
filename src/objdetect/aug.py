@@ -16,7 +16,7 @@ def RandomHflip():
     '''Random horizontal flips.'''
     def f(image, bboxes, **data):
         if np.random.rand() < 0.5:
-            image = np.flip(image, 1)
+            image = np.flip(image, 1).copy()
             bboxes = bboxes.copy()
             bboxes[:, 0] = 1 - bboxes[:, 0]
             bboxes[:, 2] = 1 - bboxes[:, 2]
