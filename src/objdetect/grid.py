@@ -41,13 +41,13 @@ def compute_clusters(ds, n):
 
 def AnchorFilter(anchor, min_iou):
     '''Filter only objects with ≥IoU of a given `anchor`.'''
-    import metrics
+    from . import metrics
     def f(h, w, bbox):
         xc = (bbox[0]+bbox[2]) / 2
         yc = (bbox[1]+bbox[3]) / 2
         anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
             xc+anchor[0]/2, yc+anchor[1]/2)
-        return IoU(bbox, anchor_box) >= min_iou
+        return metrics.IoU(bbox, anchor_box) >= min_iou
     return f
 
 ###########################################################
@@ -80,8 +80,8 @@ def SetHasObj():
         grid[:, yy, xx] = 1
     return f
 
-def SetCenterSizeBboxesOnce():
-    '''Sets 1 on the object center location.'''
+def SetOffsetSizeBboxes():
+    '''Sets 1 on the object center location. This is similar to YOLOv3: https://arxiv.org/abs/1804.02767. Please notice this only makes sense if slicing only one location per bbox (e.g. `SliceOnlyCenterBbox()`), because the offset is relative to the center of the current location.'''
     def f(grid, yy, xx, datum, i):
         bbox = datum['bboxes'][i]
         _, h, w = grid.shape
@@ -91,6 +91,20 @@ def SetCenterSizeBboxesOnce():
         grid[1, yy, xx] = (yc % (1/h))*h
         grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
         grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+    return f
+
+def SetOffsetSizeBboxesAnchor(anchor):
+    '''Sets 1 on the object center location relative to the given anchor. See also `SetOffsetSizeBboxes()` for more details.'''
+    ph, pw = anchor
+    def f(grid, yy, xx, datum, i):
+        bbox = datum['bboxes'][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log((bbox[2] - bbox[0])/pw)
+        grid[3, yy, xx] = np.log((bbox[3] - bbox[1])/ph)
     return f
 
 def SetRelBboxes():

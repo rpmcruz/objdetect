@@ -70,13 +70,13 @@ def compute_clusters(ds, n):
 
 def AnchorFilter(anchor, min_iou):
     &#39;&#39;&#39;Filter only objects with ≥IoU of a given `anchor`.&#39;&#39;&#39;
-    import metrics
+    from . import metrics
     def f(h, w, bbox):
         xc = (bbox[0]+bbox[2]) / 2
         yc = (bbox[1]+bbox[3]) / 2
         anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
             xc+anchor[0]/2, yc+anchor[1]/2)
-        return IoU(bbox, anchor_box) &gt;= min_iou
+        return metrics.IoU(bbox, anchor_box) &gt;= min_iou
     return f
 
 ###########################################################
@@ -109,8 +109,8 @@ def SetHasObj():
         grid[:, yy, xx] = 1
     return f
 
-def SetCenterSizeBboxesOnce():
-    &#39;&#39;&#39;Sets 1 on the object center location.&#39;&#39;&#39;
+def SetOffsetSizeBboxes():
+    &#39;&#39;&#39;Sets 1 on the object center location. This is similar to YOLOv3: https://arxiv.org/abs/1804.02767. Please notice this only makes sense if slicing only one location per bbox (e.g. `SliceOnlyCenterBbox()`), because the offset is relative to the center of the current location.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         bbox = datum[&#39;bboxes&#39;][i]
         _, h, w = grid.shape
@@ -120,6 +120,20 @@ def SetCenterSizeBboxesOnce():
         grid[1, yy, xx] = (yc % (1/h))*h
         grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
         grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+    return f
+
+def SetOffsetSizeBboxesAnchor(anchor):
+    &#39;&#39;&#39;Sets 1 on the object center location relative to the given anchor. See also `SetOffsetSizeBboxes()` for more details.&#39;&#39;&#39;
+    ph, pw = anchor
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log((bbox[2] - bbox[0])/pw)
+        grid[3, yy, xx] = np.log((bbox[3] - bbox[1])/ph)
     return f
 
 def SetRelBboxes():
@@ -202,13 +216,13 @@ def merge_dicts(l):
 </summary>
 <pre><code class="python">def AnchorFilter(anchor, min_iou):
     &#39;&#39;&#39;Filter only objects with ≥IoU of a given `anchor`.&#39;&#39;&#39;
-    import metrics
+    from . import metrics
     def f(h, w, bbox):
         xc = (bbox[0]+bbox[2]) / 2
         yc = (bbox[1]+bbox[3]) / 2
         anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
             xc+anchor[0]/2, yc+anchor[1]/2)
-        return IoU(bbox, anchor_box) &gt;= min_iou
+        return metrics.IoU(bbox, anchor_box) &gt;= min_iou
     return f</code></pre>
 </details>
 </dd>
@@ -293,29 +307,6 @@ def merge_dicts(l):
     return f</code></pre>
 </details>
 </dd>
-<dt id="grid.SetCenterSizeBboxesOnce"><code class="name flex">
-<span>def <span class="ident">SetCenterSizeBboxesOnce</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sets 1 on the object center location.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def SetCenterSizeBboxesOnce():
-    &#39;&#39;&#39;Sets 1 on the object center location.&#39;&#39;&#39;
-    def f(grid, yy, xx, datum, i):
-        bbox = datum[&#39;bboxes&#39;][i]
-        _, h, w = grid.shape
-        xc = (bbox[0]+bbox[2])/2
-        yc = (bbox[1]+bbox[3])/2
-        grid[0, yy, xx] = (xc % (1/w))*w
-        grid[1, yy, xx] = (yc % (1/h))*h
-        grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
-        grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
-    return f</code></pre>
-</details>
-</dd>
 <dt id="grid.SetCenterness"><code class="name flex">
 <span>def <span class="ident">SetCenterness</span></span>(<span>)</span>
 </code></dt>
@@ -371,6 +362,53 @@ def merge_dicts(l):
     &#39;&#39;&#39;Sets 1 wherever the object is, according to the given slicing.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         grid[:, yy, xx] = 1
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetOffsetSizeBboxes"><code class="name flex">
+<span>def <span class="ident">SetOffsetSizeBboxes</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets 1 on the object center location. This is similar to YOLOv3: <a href="https://arxiv.org/abs/1804.02767.">https://arxiv.org/abs/1804.02767.</a> Please notice this only makes sense if slicing only one location per bbox (e.g. <code><a title="grid.SliceOnlyCenterBbox" href="#grid.SliceOnlyCenterBbox">SliceOnlyCenterBbox()</a></code>), because the offset is relative to the center of the current location.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetOffsetSizeBboxes():
+    &#39;&#39;&#39;Sets 1 on the object center location. This is similar to YOLOv3: https://arxiv.org/abs/1804.02767. Please notice this only makes sense if slicing only one location per bbox (e.g. `SliceOnlyCenterBbox()`), because the offset is relative to the center of the current location.&#39;&#39;&#39;
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
+        grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetOffsetSizeBboxesAnchor"><code class="name flex">
+<span>def <span class="ident">SetOffsetSizeBboxesAnchor</span></span>(<span>anchor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets 1 on the object center location relative to the given anchor. See also <code><a title="grid.SetOffsetSizeBboxes" href="#grid.SetOffsetSizeBboxes">SetOffsetSizeBboxes()</a></code> for more details.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetOffsetSizeBboxesAnchor(anchor):
+    &#39;&#39;&#39;Sets 1 on the object center location relative to the given anchor. See also `SetOffsetSizeBboxes()` for more details.&#39;&#39;&#39;
+    ph, pw = anchor
+    def f(grid, yy, xx, datum, i):
+        bbox = datum[&#39;bboxes&#39;][i]
+        _, h, w = grid.shape
+        xc = (bbox[0]+bbox[2])/2
+        yc = (bbox[1]+bbox[3])/2
+        grid[0, yy, xx] = (xc % (1/w))*w
+        grid[1, yy, xx] = (yc % (1/h))*h
+        grid[2, yy, xx] = np.log((bbox[2] - bbox[0])/pw)
+        grid[3, yy, xx] = np.log((bbox[3] - bbox[1])/ph)
     return f</code></pre>
 </details>
 </dd>
@@ -526,10 +564,11 @@ def merge_dicts(l):
 <li><code><a title="grid.NewClasses" href="#grid.NewClasses">NewClasses</a></code></li>
 <li><code><a title="grid.NewHasObj" href="#grid.NewHasObj">NewHasObj</a></code></li>
 <li><code><a title="grid.RemoveKeys" href="#grid.RemoveKeys">RemoveKeys</a></code></li>
-<li><code><a title="grid.SetCenterSizeBboxesOnce" href="#grid.SetCenterSizeBboxesOnce">SetCenterSizeBboxesOnce</a></code></li>
 <li><code><a title="grid.SetCenterness" href="#grid.SetCenterness">SetCenterness</a></code></li>
 <li><code><a title="grid.SetClasses" href="#grid.SetClasses">SetClasses</a></code></li>
 <li><code><a title="grid.SetHasObj" href="#grid.SetHasObj">SetHasObj</a></code></li>
+<li><code><a title="grid.SetOffsetSizeBboxes" href="#grid.SetOffsetSizeBboxes">SetOffsetSizeBboxes</a></code></li>
+<li><code><a title="grid.SetOffsetSizeBboxesAnchor" href="#grid.SetOffsetSizeBboxesAnchor">SetOffsetSizeBboxesAnchor</a></code></li>
 <li><code><a title="grid.SetRelBboxes" href="#grid.SetRelBboxes">SetRelBboxes</a></code></li>
 <li><code><a title="grid.SizeFilter" href="#grid.SizeFilter">SizeFilter</a></code></li>
 <li><code><a title="grid.SliceAcrossCeilBbox" href="#grid.SliceAcrossCeilBbox">SliceAcrossCeilBbox</a></code></li>

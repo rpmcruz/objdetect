@@ -7,16 +7,27 @@ from torch import nn
 import torch
 import numpy as np
 
+class ConvBatchNorm(nn.Module):
+    def __init__(self, in_channels, out_channels, stride, padding):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, 3, stride, padding)
+        self.batch_norm = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        return self.batch_norm(self.conv(x))
+
 class SimpleBackbone(nn.Module):
     '''Very simple backbone. Applies convolutions with stride-2 for how many times as length of the given list. Furthermore, it outputs the result of those layers where the list is true. You may want to use a pre-trained architecture instead.'''
-    def __init__(self, output_levels):
+    def __init__(self, output_levels, channels_levels, use_batchnorm):
         super().__init__()
-        prev, next = 3, 32
+        assert len(output_levels) == len(channels_levels)
         self.layers = nn.ModuleList()
         self.output_levels = output_levels
-        for _ in range(len(output_levels)):
-            self.layers.append(nn.Conv2d(prev, next, 3, 2, 1))
-            prev, next = next, next*2
+        prev = 3
+        for next in channels_levels:
+            layer = ConvBatchNorm(prev, next, 2, 1) if use_batchnorm else nn.Conv2d(prev, next, 3, 2, 1)
+            self.layers.append(layer)
+            prev = next
 
     def forward(self, x):
         outs = []

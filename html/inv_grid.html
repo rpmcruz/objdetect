@@ -58,7 +58,7 @@ def InvRelBboxes():
         return bboxes_offset[ix]
     return f
 
-def InvCenterSizeBboxes():
+def InvOffsetSizeBboxes():
     &#39;&#39;&#39;Inverts center and sizes grid to a list of bounding boxes.&#39;&#39;&#39;
     def f(ix, key, datum):
         bboxes = datum[key]
@@ -68,6 +68,25 @@ def InvCenterSizeBboxes():
         yc = (yy+bboxes[1])/h
         bw = np.exp(bboxes[2])
         bh = np.exp(bboxes[3])
+        bboxes_offset = np.stack((
+            xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
+        ), -1)
+        return bboxes_offset[ix]
+    return f
+
+def InvOffsetSizeBboxesAnchor(anchors):
+    &#39;&#39;&#39;Similar to `InvOffsetSizeBboxes()` but supporting anchors.&#39;&#39;&#39;
+    import re
+    pattern = re.compile(r&#39;(\d+)$&#39;)
+    def f(ix, key, datum):
+        ph, pw = anchors[int(pattern.search(key).group(1))]  # a bit ugly
+        bboxes = datum[key]
+        _, h, w = bboxes.shape
+        yy, xx = np.mgrid[0:h, 0:w]
+        xc = (xx+bboxes[0])/w
+        yc = (yy+bboxes[1])/h
+        bw = pw * np.exp(bboxes[2])
+        bh = ph * np.exp(bboxes[3])
         bboxes_offset = np.stack((
             xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
         ), -1)
@@ -106,8 +125,24 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="inv_grid.InvCenterSizeBboxes"><code class="name flex">
-<span>def <span class="ident">InvCenterSizeBboxes</span></span>(<span>)</span>
+<dt id="inv_grid.InvClasses"><code class="name flex">
+<span>def <span class="ident">InvClasses</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inverts the classes grid to a list of classes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def InvClasses():
+    &#39;&#39;&#39;Inverts the classes grid to a list of classes.&#39;&#39;&#39;
+    def f(ix, key, datum):
+        return datum[key].argmax(0)[ix]
+    return f</code></pre>
+</details>
+</dd>
+<dt id="inv_grid.InvOffsetSizeBboxes"><code class="name flex">
+<span>def <span class="ident">InvOffsetSizeBboxes</span></span>(<span>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Inverts center and sizes grid to a list of bounding boxes.</p></div>
@@ -115,7 +150,7 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def InvCenterSizeBboxes():
+<pre><code class="python">def InvOffsetSizeBboxes():
     &#39;&#39;&#39;Inverts center and sizes grid to a list of bounding boxes.&#39;&#39;&#39;
     def f(ix, key, datum):
         bboxes = datum[key]
@@ -132,19 +167,32 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
     return f</code></pre>
 </details>
 </dd>
-<dt id="inv_grid.InvClasses"><code class="name flex">
-<span>def <span class="ident">InvClasses</span></span>(<span>)</span>
+<dt id="inv_grid.InvOffsetSizeBboxesAnchor"><code class="name flex">
+<span>def <span class="ident">InvOffsetSizeBboxesAnchor</span></span>(<span>anchors)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inverts the classes grid to a list of classes.</p></div>
+<div class="desc"><p>Similar to <code><a title="inv_grid.InvOffsetSizeBboxes" href="#inv_grid.InvOffsetSizeBboxes">InvOffsetSizeBboxes()</a></code> but supporting anchors.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def InvClasses():
-    &#39;&#39;&#39;Inverts the classes grid to a list of classes.&#39;&#39;&#39;
+<pre><code class="python">def InvOffsetSizeBboxesAnchor(anchors):
+    &#39;&#39;&#39;Similar to `InvOffsetSizeBboxes()` but supporting anchors.&#39;&#39;&#39;
+    import re
+    pattern = re.compile(r&#39;(\d+)$&#39;)
     def f(ix, key, datum):
-        return datum[key].argmax(0)[ix]
+        ph, pw = anchors[int(pattern.search(key).group(1))]  # a bit ugly
+        bboxes = datum[key]
+        _, h, w = bboxes.shape
+        yy, xx = np.mgrid[0:h, 0:w]
+        xc = (xx+bboxes[0])/w
+        yc = (yy+bboxes[1])/h
+        bw = pw * np.exp(bboxes[2])
+        bh = ph * np.exp(bboxes[3])
+        bboxes_offset = np.stack((
+            xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
+        ), -1)
+        return bboxes_offset[ix]
     return f</code></pre>
 </details>
 </dd>
@@ -254,8 +302,9 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="inv_grid.InvCenterSizeBboxes" href="#inv_grid.InvCenterSizeBboxes">InvCenterSizeBboxes</a></code></li>
 <li><code><a title="inv_grid.InvClasses" href="#inv_grid.InvClasses">InvClasses</a></code></li>
+<li><code><a title="inv_grid.InvOffsetSizeBboxes" href="#inv_grid.InvOffsetSizeBboxes">InvOffsetSizeBboxes</a></code></li>
+<li><code><a title="inv_grid.InvOffsetSizeBboxesAnchor" href="#inv_grid.InvOffsetSizeBboxesAnchor">InvOffsetSizeBboxesAnchor</a></code></li>
 <li><code><a title="inv_grid.InvRelBboxes" href="#inv_grid.InvRelBboxes">InvRelBboxes</a></code></li>
 <li><code><a title="inv_grid.InvScores" href="#inv_grid.InvScores">InvScores</a></code></li>
 <li><code><a title="inv_grid.InvScoresWithClasses" href="#inv_grid.InvScoresWithClasses">InvScoresWithClasses</a></code></li>

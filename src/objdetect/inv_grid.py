@@ -29,7 +29,7 @@ def InvRelBboxes():
         return bboxes_offset[ix]
     return f
 
-def InvCenterSizeBboxes():
+def InvOffsetSizeBboxes():
     '''Inverts center and sizes grid to a list of bounding boxes.'''
     def f(ix, key, datum):
         bboxes = datum[key]
@@ -39,6 +39,25 @@ def InvCenterSizeBboxes():
         yc = (yy+bboxes[1])/h
         bw = np.exp(bboxes[2])
         bh = np.exp(bboxes[3])
+        bboxes_offset = np.stack((
+            xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
+        ), -1)
+        return bboxes_offset[ix]
+    return f
+
+def InvOffsetSizeBboxesAnchor(anchors):
+    '''Similar to `InvOffsetSizeBboxes()` but supporting anchors.'''
+    import re
+    pattern = re.compile(r'(\d+)$')
+    def f(ix, key, datum):
+        ph, pw = anchors[int(pattern.search(key).group(1))]  # a bit ugly
+        bboxes = datum[key]
+        _, h, w = bboxes.shape
+        yy, xx = np.mgrid[0:h, 0:w]
+        xc = (xx+bboxes[0])/w
+        yc = (yy+bboxes[1])/h
+        bw = pw * np.exp(bboxes[2])
+        bh = ph * np.exp(bboxes[3])
         bboxes_offset = np.stack((
             xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
         ), -1)
