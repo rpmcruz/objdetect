@@ -46,8 +46,8 @@ ts = torch.utils.data.DataLoader(ts, 32, num_workers=6)
 
 ######################## MODEL ########################
 
-backbone = od.models.SimpleBackbone([False]*4 + [True], [32, 64, 128, 256, 512], False)
-heads = [{'hasobjs': od.models.HeadHasObjs(512), 'bboxes': od.models.HeadExpBboxes(512), 'classes': od.models.HeadClasses(512, NCLASSES)}]
+backbone = od.models.SimpleBackbone([32, 64, 128, 256, 512], False)
+heads = [{}]*4 + [{'hasobjs': od.models.HeadHasObjs(512), 'bboxes': od.models.HeadExpBboxes(512), 'classes': od.models.HeadClasses(512, NCLASSES)}]
 model = od.models.Model(backbone, heads)
 model = model.cuda()
 print(summary(model, (10, 3, 256, 256)))

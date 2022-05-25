@@ -17,12 +17,10 @@ class ConvBatchNorm(nn.Module):
         return self.batch_norm(self.conv(x))
 
 class SimpleBackbone(nn.Module):
-    '''Very simple backbone. Applies convolutions with stride-2 for how many times as length of the given list. Furthermore, it outputs the result of those layers where the list is true. You may want to use a pre-trained architecture instead.'''
-    def __init__(self, output_levels, channels_levels, use_batchnorm):
+    '''Very simple backbone. Applies convolutions with stride-2 for how many times as length of the channels list. This is a simple architecture, you may want to use a pre-trained architecture instead.'''
+    def __init__(self, channels_levels, use_batchnorm):
         super().__init__()
-        assert len(output_levels) == len(channels_levels)
         self.layers = nn.ModuleList()
-        self.output_levels = output_levels
         prev = 3
         for next in channels_levels:
             layer = ConvBatchNorm(prev, next, 2, 1) if use_batchnorm else nn.Conv2d(prev, next, 3, 2, 1)
@@ -31,10 +29,9 @@ class SimpleBackbone(nn.Module):
 
     def forward(self, x):
         outs = []
-        for layer, out in zip(self.layers, self.output_levels):
+        for layer in self.layers:
             x = layer(x)
-            if out:
-                outs.append(x)
+            outs.append(x)
             x = F.relu(x)
         return outs
 
