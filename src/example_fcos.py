@@ -17,7 +17,7 @@ NCLASSES = len(od.data.VOCDetection.labels)
 GRID_SIZES = [(128, 128), (64, 64), (32, 32), (16, 16), (8, 8)]
 NLEVELS = len(GRID_SIZES)
 
-######################## GRID ########################
+######################## GRID & AUG ########################
 
 grid_transforms = [od.grid.Transform(
     grid_size,

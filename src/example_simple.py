@@ -13,7 +13,7 @@ import objdetect as od
 
 NCLASSES = len(od.data.VOCDetection.labels)
 
-######################## GRID ########################
+######################## GRID & AUG ########################
 
 grid_transform = od.grid.Transform(
     (8, 8),

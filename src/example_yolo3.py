@@ -22,7 +22,7 @@ GRID_SIZES = [(8, 8)]*NANCHORS
 tr = od.data.VOCDetection('/data', 'train', None)
 anchors = od.grid.compute_clusters(tr, NANCHORS)
 
-######################## GRID ########################
+######################## GRID & AUG ########################
 
 grid_transforms = [od.grid.Transform(
     grid_size,
