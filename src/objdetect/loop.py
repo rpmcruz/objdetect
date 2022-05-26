@@ -24,7 +24,6 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None
         avg_losses = {name: 0 for name in loss_fns}
         for data in tr:
             X = data['image'].permute(0, 3, 1, 2).to(device)
-            opt.zero_grad()
             preds = model(X)
             data_cuda = {name: data[name].to(device) for name in loss_fns}
 
@@ -37,6 +36,7 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None
                 loss += loss_value
                 avg_losses[name] += float(loss_value) / len(tr)
 
+            opt.zero_grad()
             loss.backward()
             opt.step()
             avg_loss += float(loss) / len(tr)
