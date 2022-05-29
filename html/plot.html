@@ -38,37 +38,45 @@ from skimage.transform import resize
 
 def grid_lines(image, h, w):
     &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, linewidth=0.5)
     plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, linewidth=0.5)
 
 def grid_bools(image, grid):
     &#39;&#39;&#39;Draws a grid boolean matrix, such as the hasobjs grid.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap([&#39;green&#39;]))
 
 def grid_text(image, grid):
     &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     h, w = grid.shape
     for y in range(h):
         for x in range(w):
             plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(grid[y, x]), c=&#39;blue&#39;)
 
-def bboxes(image, bboxes):
+def image(image):
+    &#39;&#39;&#39;Calls `plt.imshow()` with channels permutted CxHxW =&gt; HxWxC.&#39;&#39;&#39;
+    plt.imshow(image.permute((1, 2, 0)))
+
+def bboxes(image, bboxes, ec=&#39;blue&#39;, ls=&#39;-&#39;):
     &#39;&#39;&#39;Draws a list of bounding boxes.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     for xmin, ymin, xmax, ymax in bboxes:
         plt.gca().add_patch(patches.Rectangle(
             (xmin*W, ymin*H), (xmax-xmin)*W, (ymax-ymin)*H,
-            edgecolor=&#39;blue&#39;, facecolor=&#39;none&#39;))
+            lw=2, ls=ls, ec=ec, fc=&#39;none&#39;))
 
 def classes(image, bboxes, classes, labels=None):
     &#39;&#39;&#39;Draws a list of classes captions above the bounding box. If a `labels` list is provided then the respective label will be drawn, rather than the integer.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     for (xmin, ymin, xmax, ymax), klass in zip(bboxes, classes):
         s = labels[klass] if labels else klass
-        plt.text(xmin*W, ymin*H, s)</code></pre>
+        plt.text(xmin*W, ymin*H, s)
+
+def show():
+    &#39;&#39;&#39;Convenience method. Just call `plt.show()`.&#39;&#39;&#39;
+    plt.show()</code></pre>
 </details>
 </section>
 <section>
@@ -79,7 +87,7 @@ def classes(image, bboxes, classes, labels=None):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="plot.bboxes"><code class="name flex">
-<span>def <span class="ident">bboxes</span></span>(<span>image, bboxes)</span>
+<span>def <span class="ident">bboxes</span></span>(<span>image, bboxes, ec='blue', ls='-')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Draws a list of bounding boxes.</p></div>
@@ -87,13 +95,13 @@ def classes(image, bboxes, classes, labels=None):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def bboxes(image, bboxes):
+<pre><code class="python">def bboxes(image, bboxes, ec=&#39;blue&#39;, ls=&#39;-&#39;):
     &#39;&#39;&#39;Draws a list of bounding boxes.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     for xmin, ymin, xmax, ymax in bboxes:
         plt.gca().add_patch(patches.Rectangle(
             (xmin*W, ymin*H), (xmax-xmin)*W, (ymax-ymin)*H,
-            edgecolor=&#39;blue&#39;, facecolor=&#39;none&#39;))</code></pre>
+            lw=2, ls=ls, ec=ec, fc=&#39;none&#39;))</code></pre>
 </details>
 </dd>
 <dt id="plot.classes"><code class="name flex">
@@ -107,7 +115,7 @@ def classes(image, bboxes, classes, labels=None):
 </summary>
 <pre><code class="python">def classes(image, bboxes, classes, labels=None):
     &#39;&#39;&#39;Draws a list of classes captions above the bounding box. If a `labels` list is provided then the respective label will be drawn, rather than the integer.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     for (xmin, ymin, xmax, ymax), klass in zip(bboxes, classes):
         s = labels[klass] if labels else klass
         plt.text(xmin*W, ymin*H, s)</code></pre>
@@ -124,7 +132,7 @@ def classes(image, bboxes, classes, labels=None):
 </summary>
 <pre><code class="python">def grid_bools(image, grid):
     &#39;&#39;&#39;Draws a grid boolean matrix, such as the hasobjs grid.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap([&#39;green&#39;]))</code></pre>
 </details>
 </dd>
@@ -139,7 +147,7 @@ def classes(image, bboxes, classes, labels=None):
 </summary>
 <pre><code class="python">def grid_lines(image, h, w):
     &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, linewidth=0.5)
     plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, linewidth=0.5)</code></pre>
 </details>
@@ -155,11 +163,39 @@ def classes(image, bboxes, classes, labels=None):
 </summary>
 <pre><code class="python">def grid_text(image, grid):
     &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
-    H, W, _ = image.shape
+    _, H, W = image.shape
     h, w = grid.shape
     for y in range(h):
         for x in range(w):
             plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(grid[y, x]), c=&#39;blue&#39;)</code></pre>
+</details>
+</dd>
+<dt id="plot.image"><code class="name flex">
+<span>def <span class="ident">image</span></span>(<span>image)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calls <code>plt.imshow()</code> with channels permutted CxHxW =&gt; HxWxC.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def image(image):
+    &#39;&#39;&#39;Calls `plt.imshow()` with channels permutted CxHxW =&gt; HxWxC.&#39;&#39;&#39;
+    plt.imshow(image.permute((1, 2, 0)))</code></pre>
+</details>
+</dd>
+<dt id="plot.show"><code class="name flex">
+<span>def <span class="ident">show</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convenience method. Just call <code>plt.show()</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def show():
+    &#39;&#39;&#39;Convenience method. Just call `plt.show()`.&#39;&#39;&#39;
+    plt.show()</code></pre>
 </details>
 </dd>
 </dl>
@@ -174,12 +210,14 @@ def classes(image, bboxes, classes, labels=None):
 </div>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="plot.bboxes" href="#plot.bboxes">bboxes</a></code></li>
 <li><code><a title="plot.classes" href="#plot.classes">classes</a></code></li>
 <li><code><a title="plot.grid_bools" href="#plot.grid_bools">grid_bools</a></code></li>
 <li><code><a title="plot.grid_lines" href="#plot.grid_lines">grid_lines</a></code></li>
 <li><code><a title="plot.grid_text" href="#plot.grid_text">grid_text</a></code></li>
+<li><code><a title="plot.image" href="#plot.image">image</a></code></li>
+<li><code><a title="plot.show" href="#plot.show">show</a></code></li>
 </ul>
 </li>
 </ul>

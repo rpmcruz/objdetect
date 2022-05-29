@@ -2,7 +2,7 @@
 Methods to convert our grid transformations back to the list format, used by the metrics and most plotting methods.
 '''
 
-import numpy as np
+import torch
 
 def InvScores():
     '''Inverts hasobjs grid to a list of scores.'''
@@ -21,8 +21,8 @@ def InvRelBboxes():
     def f(ix, key, datum):
         bboxes = datum[key]
         _, h, w = bboxes.shape
-        yy, xx = np.mgrid[0:h, 0:w]
-        bboxes_offset = np.stack((
+        yy, xx = torch.meshgrid(torch.arange(0, h), torch.arange(0, w), indexing='xy')
+        bboxes_offset = torch.stack((
             xx/w-bboxes[0], yy/h-bboxes[1],
             bboxes[2]+xx/w, bboxes[3]+yy/h
         ), -1)
@@ -34,12 +34,12 @@ def InvOffsetSizeBboxes():
     def f(ix, key, datum):
         bboxes = datum[key]
         _, h, w = bboxes.shape
-        yy, xx = np.mgrid[0:h, 0:w]
+        yy, xx = torch.meshgrid(torch.arange(0, h), torch.arange(0, w), indexing='xy')
         xc = (xx+bboxes[0])/w
         yc = (yy+bboxes[1])/h
-        bw = np.exp(bboxes[2])
-        bh = np.exp(bboxes[3])
-        bboxes_offset = np.stack((
+        bw = torch.exp(bboxes[2])
+        bh = torch.exp(bboxes[3])
+        bboxes_offset = torch.stack((
             xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
         ), -1)
         return bboxes_offset[ix]
@@ -53,12 +53,12 @@ def InvOffsetSizeBboxesAnchor(anchors):
         ph, pw = anchors[int(pattern.search(key).group(1))]  # a bit ugly
         bboxes = datum[key]
         _, h, w = bboxes.shape
-        yy, xx = np.mgrid[0:h, 0:w]
+        yy, xx = torch.meshgrid(torch.arange(0, h), torch.arange(0, w), indexing='xy')
         xc = (xx+bboxes[0])/w
         yc = (yy+bboxes[1])/h
-        bw = pw * np.exp(bboxes[2])
-        bh = ph * np.exp(bboxes[3])
-        bboxes_offset = np.stack((
+        bw = pw * torch.exp(bboxes[2])
+        bh = ph * torch.exp(bboxes[3])
+        bboxes_offset = torch.stack((
             xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
         ), -1)
         return bboxes_offset[ix]

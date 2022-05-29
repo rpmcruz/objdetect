@@ -2,13 +2,13 @@
 In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid.
 '''
 
-import numpy as np
+import torch
 
 def SliceAcrossCeilBbox():
     '''Choose all grid locations that contain the entirety of the object (similar to FCOS).'''
     def f(h, w, bbox):
-        yy = slice(int(np.ceil(bbox[1]*h)), int(np.ceil(bbox[3]*h)))
-        xx = slice(int(np.ceil(bbox[0]*w)), int(np.ceil(bbox[2]*w)))
+        yy = slice(int(torch.ceil(bbox[1]*h)), int(torch.ceil(bbox[3]*h)))
+        xx = slice(int(torch.ceil(bbox[0]*w)), int(torch.ceil(bbox[2]*w)))
         return yy, xx
     return f
 
@@ -55,19 +55,19 @@ def AnchorFilter(anchor, min_iou):
 def NewHasObj():
     '''Grid 1xhxw.'''
     def f(h, w):
-        return np.zeros((1, h, w), np.float32)
+        return torch.zeros((1, h, w), dtype=torch.float32)
     return f
 
 def NewBboxes():
     '''Grid 4xhxw.'''
     def f(h, w):
-        return np.zeros((4, h, w), np.float32)
+        return torch.zeros((4, h, w), dtype=torch.float32)
     return f
 
 def NewClasses():
     '''Grid hxw.'''
     def f(h, w):  # CrossEntropyLoss needs (h, w), not (1, h, w)
-        return np.zeros((h, w), np.int64)
+        return torch.zeros((h, w), dtype=torch.int64)
     return f
 
 NewCenterness = NewHasObj
@@ -89,8 +89,8 @@ def SetOffsetSizeBboxes():
         yc = (bbox[1]+bbox[3])/2
         grid[0, yy, xx] = (xc % (1/w))*w
         grid[1, yy, xx] = (yc % (1/h))*h
-        grid[2, yy, xx] = np.log(bbox[2] - bbox[0])
-        grid[3, yy, xx] = np.log(bbox[3] - bbox[1])
+        grid[2, yy, xx] = torch.log(bbox[2] - bbox[0])
+        grid[3, yy, xx] = torch.log(bbox[3] - bbox[1])
     return f
 
 def SetOffsetSizeBboxesAnchor(anchor):
@@ -103,8 +103,8 @@ def SetOffsetSizeBboxesAnchor(anchor):
         yc = (bbox[1]+bbox[3])/2
         grid[0, yy, xx] = (xc % (1/w))*w
         grid[1, yy, xx] = (yc % (1/h))*h
-        grid[2, yy, xx] = np.log((bbox[2] - bbox[0])/pw)
-        grid[3, yy, xx] = np.log((bbox[3] - bbox[1])/ph)
+        grid[2, yy, xx] = torch.log((bbox[2] - bbox[0])/pw)
+        grid[3, yy, xx] = torch.log((bbox[3] - bbox[1])/ph)
     return f
 
 def SetRelBboxes():
@@ -112,7 +112,9 @@ def SetRelBboxes():
     def f(grid, yy, xx, datum, i):
         bbox = datum['bboxes'][i]
         _, h, w = grid.shape
-        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        _yy, _xx = torch.meshgrid(
+            torch.arange(yy.start, yy.stop), torch.arange(xx.start, xx.stop),
+            indexing='xy')
         grid[0, yy, xx] = (_xx/w) - bbox[0]
         grid[1, yy, xx] = (_yy/h) - bbox[1]
         grid[2, yy, xx] = bbox[2] - (_xx/w)
@@ -131,14 +133,16 @@ def SetCenterness():
     def f(grid, yy, xx, datum, i):
         bbox = datum['bboxes'][i]
         _, h, w = grid.shape
-        _yy, _xx = np.mgrid[yy.start:yy.stop, xx.start:xx.stop]
+        _yy, _xx = torch.meshgrid(
+            torch.arange(yy.start, yy.stop), torch.arange(xx.start, xx.stop),
+            indexing='xy')
         L = (_xx/w) - bbox[0]
         T = (_yy/h) - bbox[1]
         R = bbox[2] - (_xx/w)
         B = bbox[3] - (_yy/h)
-        factor1 = np.minimum(L, R)/np.maximum(L, R)
-        factor2 = np.minimum(T, B)/np.maximum(T, B)
-        return np.sqrt(factor1 * factor2)
+        factor1 = torch.minimum(L, R)/torch.maximum(L, R)
+        factor2 = torch.minimum(T, B)/torch.maximum(T, B)
+        return torch.sqrt(factor1 * factor2)
     return f
 
 ###########################################################

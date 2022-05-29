@@ -10,7 +10,6 @@ from torchinfo import summary
 from torch import nn
 import torch
 import matplotlib.pyplot as plt
-plt.rcParams['figure.figsize'] = (14, 12)
 import objdetect as od
 
 NCLASSES = len(od.data.VOCDetection.labels)
@@ -32,14 +31,20 @@ grid_transforms = [od.grid.Transform(
     {f'hasobjs{i}': od.grid.SetHasObj(), f'bboxes{i}': od.grid.SetOffsetSizeBboxesAnchor(anchor), f'classes{i}': od.grid.SetClasses()},
 ) for i, (anchor, grid_size) in enumerate(zip(anchors, GRID_SIZES))]
 
-transforms = od.aug.Compose(
-    od.aug.ResizeAndNormalize(int(256*1.05), int(256*1.05)),
+dict_transform = od.aug.Compose([
+    od.aug.Resize(int(256*1.05), int(256*1.05)),
     od.aug.RandomCrop(256, 256),
     od.aug.RandomBrightnessContrast(0.1, 0.05),
     od.aug.RandomHflip(),
     *grid_transforms,
     od.grid.RemoveKeys(['bboxes', 'classes'])
-)
+])
+
+val_dict_transform = od.aug.Compose([
+    od.aug.Resize(256, 256),
+    *grid_transform,
+    od.grid.RemoveKeys(['bboxes', 'classes'])
+])
 
 inv_transforms = od.inv_grid.MultiLevelInvTransform(
     [lambda datum, i=i: datum[f'hasobjs{i}'][0] >= 0.5 for i in range(NANCHORS)],
@@ -49,10 +54,10 @@ inv_transforms = od.inv_grid.MultiLevelInvTransform(
 
 ######################## DATA ########################
 
-tr = od.data.VOCDetection('/data', 'train', transforms)
+tr = od.data.VOCDetection('/data', 'train', None, dict_transform)
 tr = torch.utils.data.DataLoader(tr, 32, True, num_workers=6)
 
-ts = od.data.VOCDetection('/data', 'val', transforms)
+ts = od.data.VOCDetection('/data', 'val', None, val_dict_transforms)
 ts = torch.utils.data.DataLoader(ts, 32, num_workers=6)
 
 ######################## MODEL ########################
@@ -87,11 +92,13 @@ od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 1000, od.loop.StopPatie
 inputs, outputs = od.loop.eval(ts, model)
 
 for i in range(3*4):
-    plt.subplot(3, 4, i+1)
-    plt.imshow(inputs[i]['image'])
-    od.plot.hasobjs(outputs[i]['hasobjs'])
     inv_outputs = inv_transforms(outputs[i])
     inv_bboxes, inv_classes = od.post.NMS(inv_outputs['hasobjs'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
+
+    plt.subplot(3, 4, i+1)
+    od.plot.image(inputs[i]['image'])
+    od.plot.grid_bool(inputs[i]['image'], outputs[i]['hasobjs'][0])
+    od.plot.grid_lines(inputs[i]['image'], 8, 8)
     od.plot.bboxes(inputs[i]['image'], inv_bboxes)
     od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)
 plt.tight_layout()

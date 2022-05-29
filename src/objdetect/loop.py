@@ -11,7 +11,7 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None
 
     # sanity-check: all losses must have reduction='none'
     data = next(iter(tr))
-    preds = model(data['image'].permute(0, 3, 1, 2).to(device))
+    preds = model(data['image'].to(device))
     for name, f in loss_fns.items():
         loss_value = f(preds[name], data[name].to(device))
         assert len(loss_value.shape) > 0, f"Loss {name} must have reduction='none'"
@@ -23,7 +23,7 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None
         avg_loss = 0
         avg_losses = {name: 0 for name in loss_fns}
         for data in tr:
-            X = data['image'].permute(0, 3, 1, 2).to(device)
+            X = data['image'].to(device)
             preds = model(X)
             data_cuda = {name: data[name].to(device) for name in loss_fns}
 
@@ -53,13 +53,13 @@ def eval(ts, model):
     outputs = []
     model.eval()
     for data in ts:
-        X = data['image'].permute(0, 3, 1, 2).to(device)
+        X = data['image'].to(device)
         with torch.no_grad():
             preds = model(X)
 
         n = X.shape[0]
-        inputs += [{k: v[i].numpy() for k, v in data.items()} for i in range(n)]
-        outputs += [{k: v[i].detach().cpu().numpy() for k, v in preds.items()} for i in range(n)]
+        inputs += [{k: v[i] for k, v in data.items()} for i in range(n)]
+        outputs += [{k: v[i].detach().cpu() for k, v in preds.items()} for i in range(n)]
     return inputs, outputs
 
 class StopPatience:

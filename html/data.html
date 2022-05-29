@@ -22,19 +22,23 @@
 <h1 class="title">Module <code>data</code></h1>
 </header>
 <section id="section-intro">
-<p>Some common datasets. Each dataset produces a dictionary with the properties relative to each image. Each bbox is a tuple of type (xmin, ymin, xmax, ymax) with each value [0, 1] normalized.</p>
+<p>Some common datasets. Each dataset produces a dictionary with the properties relative to each image. Each bbox is a tuple of type (xmin, ymin, xmax, ymax) with each value [0, 1] normalized. Images are also returned as normalized tensors CxHxW.</p>
+<p>Use <code>img_transform</code> for image-unique transformations and <code>dict_transform</code> for transformations that could affect both images and bboxes or possibly other things. We provide <code><a title="aug" href="aug.html">aug</a></code> for such dict transformations, but you may also use the albumentations package.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#39;&#39;&#39;
-Some common datasets. Each dataset produces a dictionary with the properties relative to each image. Each bbox is a tuple of type (xmin, ymin, xmax, ymax) with each value [0, 1] normalized.
+Some common datasets. Each dataset produces a dictionary with the properties relative to each image. Each bbox is a tuple of type (xmin, ymin, xmax, ymax) with each value [0, 1] normalized. Images are also returned as normalized tensors CxHxW.
+
+Use `img_transform` for image-unique transformations and `dict_transform` for transformations that could affect both images and bboxes or possibly other things. We provide `aug` for such dict transformations, but you may also use the albumentations package.
 &#39;&#39;&#39;
 
 from torch.utils.data import Dataset
 from torchvision import datasets
-from skimage.io import imread
-import numpy as np
+from torchvision.transforms import functional as TF
+from torchvision.io import read_image, ImageReadMode
+import torch
 import os
 
 class VOCDetection(datasets.VOCDetection):
@@ -42,33 +46,36 @@ class VOCDetection(datasets.VOCDetection):
 
     labels = [&#39;person&#39;, &#39;bird&#39;, &#39;cat&#39;, &#39;cow&#39;, &#39;dog&#39;, &#39;horse&#39;, &#39;sheep&#39;, &#39;aeroplane&#39;, &#39;bicycle&#39;, &#39;boat&#39;, &#39;bus&#39;, &#39;car&#39;, &#39;motorbike&#39;, &#39;train&#39;, &#39;bottle&#39;, &#39;chair&#39;, &#39;diningtable&#39;, &#39;pottedplant&#39;, &#39;sofa&#39;, &#39;tvmonitor&#39;]
 
-    def __init__(self, root, fold, my_transform, download=False):
+    def __init__(self, root, fold, img_transform, dict_transform, download=False):
         super().__init__(root, image_set=fold, download=download)
-        self.my_transform = my_transform
+        self.img_transform = img_transform
+        self.dict_transform = dict_transform
 
     def __getitem__(self, i):
         image, xml = super().__getitem__(i)
         objs = xml[&#39;annotation&#39;][&#39;object&#39;]
-        image = np.array(image)
-        bboxes = np.array([(
-            float(o[&#39;bndbox&#39;][&#39;xmin&#39;]) / image.shape[1],
-            float(o[&#39;bndbox&#39;][&#39;ymin&#39;]) / image.shape[0],
-            float(o[&#39;bndbox&#39;][&#39;xmax&#39;]) / image.shape[1],
-            float(o[&#39;bndbox&#39;][&#39;ymax&#39;]) / image.shape[0],
-        ) for o in objs], np.float32)
-        classes = np.array([self.labels.index(o[&#39;name&#39;]) for o in objs], np.int64)
+        image = TF.pil_to_tensor(image)/255
+        bboxes = torch.tensor([(
+            float(o[&#39;bndbox&#39;][&#39;xmin&#39;]) / image.shape[2],
+            float(o[&#39;bndbox&#39;][&#39;ymin&#39;]) / image.shape[1],
+            float(o[&#39;bndbox&#39;][&#39;xmax&#39;]) / image.shape[2],
+            float(o[&#39;bndbox&#39;][&#39;ymax&#39;]) / image.shape[1],
+        ) for o in objs], dtype=torch.float32)
+        classes = torch.tensor([self.labels.index(o[&#39;name&#39;]) for o in objs], dtype=torch.int64)
+        if self.img_transform:
+            image = self.img_transform(image)
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
-        if self.my_transform:
-            datum = self.my_transform(**datum)
+        if self.dict_transform:
+            datum = self.dict_transform(**datum)
         return datum
-
 
 class CocoDetection(Dataset):
     &#39;&#39;&#39;The popular [COCO](https://cocodataset.org/) dataset from Microsoft, which contains 80 classes.&#39;&#39;&#39;
 
-    def __init__(self, images_dir, ann_file, my_transform):
-        self.my_transform = my_transform
+    def __init__(self, images_dir, ann_file, img_transform, dict_transform):
         self.images_dir = images_dir
+        self.img_transform = img_transform
+        self.dict_transform = dict_transform
         self.bboxes = {}
         self.classes = {}
         anns = json.load(open(ann_file))
@@ -81,10 +88,10 @@ class CocoDetection(Dataset):
             bbox = ann[&#39;bbox&#39;]
             class_ = self.labels.index(orig_labels[ann[&#39;category_id&#39;]])
             size = sizes[img_id]
-            self.bboxes.setdefault(img_id, []).append(np.array((
+            self.bboxes.setdefault(img_id, []).append(torch.atensor((
                 bbox[0]/size[0], bbox[1]/size[1],
                 (bbox[0]+bbox[2])/size[0], (bbox[1]+bbox[3])/size[1]
-            ), np.float32))
+            ), torch.float32))
             self.classes.setdefault(img_id, []).append(class_)
         self.filenames = {img[&#39;id&#39;]: img[&#39;file_name&#39;] for img in anns[&#39;images&#39;]}
         self.image_ids = list(self.bboxes.keys())
@@ -94,16 +101,16 @@ class CocoDetection(Dataset):
 
     def __getitem__(self, i):
         img_id = self.image_ids[i]
-        img = imread(os.path.join(self.images_dir, self.filenames[img_id]))
-        if len(img.shape) == 2:
-            img = gray2rgb(img)
+        img = read_image(os.path.join(self.images_dir, self.filenames[img_id]), ImageReadMode.RGB)/255
+        if self.img_transform:
+            image = self.img_transform(image)
         datum = {
             &#39;image&#39;: img,
             &#39;bboxes&#39;: self.bboxes[img_id],
-            &#39;classes&#39;: np.array(self.classes[img_id], np.int64)
+            &#39;classes&#39;: torch.tensor(self.classes[img_id], torch.int64)
         }
-        if self.my_transform: 
-            datum = self.my_transform(**datum)
+        if self.dict_transform:
+            datum = self.dict_transform(**datum)
         return datum
 
 class KITTIDetection(Dataset):
@@ -111,8 +118,10 @@ class KITTIDetection(Dataset):
 
     labels = [&#39;Car&#39;, &#39;Cyclist&#39;, &#39;Pedestrian&#39;, &#39;Person_sitting&#39;, &#39;Tram&#39;, &#39;Truck&#39;, &#39;Van&#39;, &#39;Misc&#39;, &#39;DontCare&#39;]
 
-    def __init__(self, root, fold, my_transform, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
+    def __init__(self, root, fold, img_transform, dict_transform, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
         assert fold in (&#39;train&#39;,)
+        self.img_transform = img_transform
+        self.dict_transform = dict_transform
         self.labels = [l for l in self.labels if l not in exclude_labels]
         self.root = os.path.join(root, &#39;kitti&#39;, &#39;object&#39;, &#39;training&#39;)
         self.files = os.listdir(os.path.join(self.root, &#39;image_2&#39;))
@@ -123,17 +132,19 @@ class KITTIDetection(Dataset):
 
     def __getitem__(self, i):
         filename = self.files[i]
-        image = imread(os.path.join(self.root, &#39;image_2&#39;, filename))
+        image = read_image(os.path.join(self.root, &#39;image_2&#39;, filename))/255
         lines = [l.split() for l in open(os.path.join(self.root, &#39;label_2&#39;, filename[:-3] + &#39;txt&#39;)).readlines()]
         lines = [l for l in lines if l[0] in self.labels]
-        bboxes = np.array([(
-            float(l[4])/image.shape[1], float(l[5])/image.shape[0],
-            float(l[6])/image.shape[1], float(l[7])/image.shape[0]
-        ) for l in lines], np.float32)
-        classes = np.array([self.labels.index(l[0]) for l in lines], np.int64)
+        bboxes = torch.array([(
+            float(l[4])/image.shape[2], float(l[5])/image.shape[1],
+            float(l[6])/image.shape[2], float(l[7])/image.shape[1]
+        ) for l in lines], torch.float32)
+        classes = torch.array([self.labels.index(l[0]) for l in lines], torch.int64)
+        if self.img_transform:
+            image = self.img_transform(image)
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
-        if self.my_transform:
-            datum = self.my_transform(**datum)
+        if self.dict_transform:
+            datum = self.dict_transform(**datum)
         return datum
 
 class FilterClass(Dataset):
@@ -147,22 +158,7 @@ class FilterClass(Dataset):
         return len(self.ix)
 
     def __getitem__(self, i):
-        return self.ds[self.ix[i]]
-
-class Memoization(Dataset):
-    &#39;&#39;&#39;Cache the dataset in RAM.&#39;&#39;&#39;
-
-    def __init__(self, ds):
-        self.ds = ds
-        self.cache = [None] * len(ds)
-
-    def __len__(self):
-        return len(self.ds)
-
-    def __getitem__(self, i):
-        if self.cache[i] is None:
-            self.cache[i] = self.ds[i]
-        return self.cache[i]</code></pre>
+        return self.ds[self.ix[i]]</code></pre>
 </details>
 </section>
 <section>
@@ -176,7 +172,7 @@ class Memoization(Dataset):
 <dl>
 <dt id="data.CocoDetection"><code class="flex name class">
 <span>class <span class="ident">CocoDetection</span></span>
-<span>(</span><span>images_dir, ann_file, my_transform)</span>
+<span>(</span><span>images_dir, ann_file, img_transform, dict_transform)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The popular <a href="https://cocodataset.org/">COCO</a> dataset from Microsoft, which contains 80 classes.</p></div>
@@ -187,9 +183,10 @@ class Memoization(Dataset):
 <pre><code class="python">class CocoDetection(Dataset):
     &#39;&#39;&#39;The popular [COCO](https://cocodataset.org/) dataset from Microsoft, which contains 80 classes.&#39;&#39;&#39;
 
-    def __init__(self, images_dir, ann_file, my_transform):
-        self.my_transform = my_transform
+    def __init__(self, images_dir, ann_file, img_transform, dict_transform):
         self.images_dir = images_dir
+        self.img_transform = img_transform
+        self.dict_transform = dict_transform
         self.bboxes = {}
         self.classes = {}
         anns = json.load(open(ann_file))
@@ -202,10 +199,10 @@ class Memoization(Dataset):
             bbox = ann[&#39;bbox&#39;]
             class_ = self.labels.index(orig_labels[ann[&#39;category_id&#39;]])
             size = sizes[img_id]
-            self.bboxes.setdefault(img_id, []).append(np.array((
+            self.bboxes.setdefault(img_id, []).append(torch.atensor((
                 bbox[0]/size[0], bbox[1]/size[1],
                 (bbox[0]+bbox[2])/size[0], (bbox[1]+bbox[3])/size[1]
-            ), np.float32))
+            ), torch.float32))
             self.classes.setdefault(img_id, []).append(class_)
         self.filenames = {img[&#39;id&#39;]: img[&#39;file_name&#39;] for img in anns[&#39;images&#39;]}
         self.image_ids = list(self.bboxes.keys())
@@ -215,16 +212,16 @@ class Memoization(Dataset):
 
     def __getitem__(self, i):
         img_id = self.image_ids[i]
-        img = imread(os.path.join(self.images_dir, self.filenames[img_id]))
-        if len(img.shape) == 2:
-            img = gray2rgb(img)
+        img = read_image(os.path.join(self.images_dir, self.filenames[img_id]), ImageReadMode.RGB)/255
+        if self.img_transform:
+            image = self.img_transform(image)
         datum = {
             &#39;image&#39;: img,
             &#39;bboxes&#39;: self.bboxes[img_id],
-            &#39;classes&#39;: np.array(self.classes[img_id], np.int64)
+            &#39;classes&#39;: torch.tensor(self.classes[img_id], torch.int64)
         }
-        if self.my_transform: 
-            datum = self.my_transform(**datum)
+        if self.dict_transform:
+            datum = self.dict_transform(**datum)
         return datum</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -264,7 +261,7 @@ class Memoization(Dataset):
 </dd>
 <dt id="data.KITTIDetection"><code class="flex name class">
 <span>class <span class="ident">KITTIDetection</span></span>
-<span>(</span><span>root, fold, my_transform, exclude_labels={'Misc', 'DontCare'})</span>
+<span>(</span><span>root, fold, img_transform, dict_transform, exclude_labels={'Misc', 'DontCare'})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The <a href="http://www.cvlibs.net/datasets/kitti/">KITTI</a> self-driving dataset.</p></div>
@@ -277,8 +274,10 @@ class Memoization(Dataset):
 
     labels = [&#39;Car&#39;, &#39;Cyclist&#39;, &#39;Pedestrian&#39;, &#39;Person_sitting&#39;, &#39;Tram&#39;, &#39;Truck&#39;, &#39;Van&#39;, &#39;Misc&#39;, &#39;DontCare&#39;]
 
-    def __init__(self, root, fold, my_transform, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
+    def __init__(self, root, fold, img_transform, dict_transform, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
         assert fold in (&#39;train&#39;,)
+        self.img_transform = img_transform
+        self.dict_transform = dict_transform
         self.labels = [l for l in self.labels if l not in exclude_labels]
         self.root = os.path.join(root, &#39;kitti&#39;, &#39;object&#39;, &#39;training&#39;)
         self.files = os.listdir(os.path.join(self.root, &#39;image_2&#39;))
@@ -289,17 +288,19 @@ class Memoization(Dataset):
 
     def __getitem__(self, i):
         filename = self.files[i]
-        image = imread(os.path.join(self.root, &#39;image_2&#39;, filename))
+        image = read_image(os.path.join(self.root, &#39;image_2&#39;, filename))/255
         lines = [l.split() for l in open(os.path.join(self.root, &#39;label_2&#39;, filename[:-3] + &#39;txt&#39;)).readlines()]
         lines = [l for l in lines if l[0] in self.labels]
-        bboxes = np.array([(
-            float(l[4])/image.shape[1], float(l[5])/image.shape[0],
-            float(l[6])/image.shape[1], float(l[7])/image.shape[0]
-        ) for l in lines], np.float32)
-        classes = np.array([self.labels.index(l[0]) for l in lines], np.int64)
+        bboxes = torch.array([(
+            float(l[4])/image.shape[2], float(l[5])/image.shape[1],
+            float(l[6])/image.shape[2], float(l[7])/image.shape[1]
+        ) for l in lines], torch.float32)
+        classes = torch.array([self.labels.index(l[0]) for l in lines], torch.int64)
+        if self.img_transform:
+            image = self.img_transform(image)
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
-        if self.my_transform:
-            datum = self.my_transform(**datum)
+        if self.dict_transform:
+            datum = self.dict_transform(**datum)
         return datum</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -315,40 +316,9 @@ class Memoization(Dataset):
 </dd>
 </dl>
 </dd>
-<dt id="data.Memoization"><code class="flex name class">
-<span>class <span class="ident">Memoization</span></span>
-<span>(</span><span>ds)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Cache the dataset in RAM.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class Memoization(Dataset):
-    &#39;&#39;&#39;Cache the dataset in RAM.&#39;&#39;&#39;
-
-    def __init__(self, ds):
-        self.ds = ds
-        self.cache = [None] * len(ds)
-
-    def __len__(self):
-        return len(self.ds)
-
-    def __getitem__(self, i):
-        if self.cache[i] is None:
-            self.cache[i] = self.ds[i]
-        return self.cache[i]</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torch.utils.data.dataset.Dataset</li>
-<li>typing.Generic</li>
-</ul>
-</dd>
 <dt id="data.VOCDetection"><code class="flex name class">
 <span>class <span class="ident">VOCDetection</span></span>
-<span>(</span><span>root, fold, my_transform, download=False)</span>
+<span>(</span><span>root, fold, img_transform, dict_transform, download=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The popular <a href="http://host.robots.ox.ac.uk/pascal/VOC/voc2012/">Pascal VOC 2012</a> dataset, which contains 20 classes.</p></div>
@@ -361,24 +331,27 @@ class Memoization(Dataset):
 
     labels = [&#39;person&#39;, &#39;bird&#39;, &#39;cat&#39;, &#39;cow&#39;, &#39;dog&#39;, &#39;horse&#39;, &#39;sheep&#39;, &#39;aeroplane&#39;, &#39;bicycle&#39;, &#39;boat&#39;, &#39;bus&#39;, &#39;car&#39;, &#39;motorbike&#39;, &#39;train&#39;, &#39;bottle&#39;, &#39;chair&#39;, &#39;diningtable&#39;, &#39;pottedplant&#39;, &#39;sofa&#39;, &#39;tvmonitor&#39;]
 
-    def __init__(self, root, fold, my_transform, download=False):
+    def __init__(self, root, fold, img_transform, dict_transform, download=False):
         super().__init__(root, image_set=fold, download=download)
-        self.my_transform = my_transform
+        self.img_transform = img_transform
+        self.dict_transform = dict_transform
 
     def __getitem__(self, i):
         image, xml = super().__getitem__(i)
         objs = xml[&#39;annotation&#39;][&#39;object&#39;]
-        image = np.array(image)
-        bboxes = np.array([(
-            float(o[&#39;bndbox&#39;][&#39;xmin&#39;]) / image.shape[1],
-            float(o[&#39;bndbox&#39;][&#39;ymin&#39;]) / image.shape[0],
-            float(o[&#39;bndbox&#39;][&#39;xmax&#39;]) / image.shape[1],
-            float(o[&#39;bndbox&#39;][&#39;ymax&#39;]) / image.shape[0],
-        ) for o in objs], np.float32)
-        classes = np.array([self.labels.index(o[&#39;name&#39;]) for o in objs], np.int64)
+        image = TF.pil_to_tensor(image)/255
+        bboxes = torch.tensor([(
+            float(o[&#39;bndbox&#39;][&#39;xmin&#39;]) / image.shape[2],
+            float(o[&#39;bndbox&#39;][&#39;ymin&#39;]) / image.shape[1],
+            float(o[&#39;bndbox&#39;][&#39;xmax&#39;]) / image.shape[2],
+            float(o[&#39;bndbox&#39;][&#39;ymax&#39;]) / image.shape[1],
+        ) for o in objs], dtype=torch.float32)
+        classes = torch.tensor([self.labels.index(o[&#39;name&#39;]) for o in objs], dtype=torch.int64)
+        if self.img_transform:
+            image = self.img_transform(image)
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
-        if self.my_transform:
-            datum = self.my_transform(**datum)
+        if self.dict_transform:
+            datum = self.dict_transform(**datum)
         return datum</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -419,9 +392,6 @@ class Memoization(Dataset):
 <ul class="">
 <li><code><a title="data.KITTIDetection.labels" href="#data.KITTIDetection.labels">labels</a></code></li>
 </ul>
-</li>
-<li>
-<h4><code><a title="data.Memoization" href="#data.Memoization">Memoization</a></code></h4>
 </li>
 <li>
 <h4><code><a title="data.VOCDetection" href="#data.VOCDetection">VOCDetection</a></code></h4>

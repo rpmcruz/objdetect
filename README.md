@@ -64,11 +64,13 @@ map_grids = {
     'bboxes': od.grid.SetRelBboxes()
 }
 
-transform = od.aug.Compose(
-    od.aug.ResizeAndNormalize(256, 256),
-    od.grid.Transform(grid_size, filter_function, slicing_function, create_grids, map_grids)
+grid_transform = od.grid.Transform(grid_size, filter_function, slicing_function, create_grids, map_grids)
+
+dict_transform = od.aug.Compose(
+    od.aug.Resize(256, 256),
+    grid_transform
 )
-ds = od.data.VOCDetection('data', 'train', transform, download=True)
+ds = od.data.VOCDetection('data', 'train', None, dict_transform, download=True)
 ```
 
 Looking at the pipeline:
@@ -112,7 +114,7 @@ Furthermore, we could have produced multiple grids -- this is useful for two typ
 
 ```python
 transform = od.aug.Compose(
-    od.aug.ResizeAndNormalize(256, 256),
+    od.aug.Resize(256, 256),
     od.grid.Transform(grid_size1, filter_function1, slicing_function1, create_grids1, map_grids1)
     od.grid.Transform(grid_size2, filter_function2, slicing_function2, create_grids2, map_grids2)
     ...
