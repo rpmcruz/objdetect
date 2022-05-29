@@ -31,8 +31,29 @@ def ValidBboxes(bboxes):
         torch.maximum(bboxes[:, 1], bboxes[:, 3]),
     ), 1)
 
-def GIoU(do_validation):
-    '''Implements the [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.'''
+def IoU(do_validation, smooth=1):
+    '''Implements loss 1-IoU (Intersection over Union).'''
+    def f(bboxes1, bboxes2):
+        # ensure bounding boxes make sense
+        if do_validation:
+            bboxes1 = ValidBboxes(bboxes1)
+            bboxes2 = ValidBboxes(bboxes2)
+        # area of each
+        A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
+        A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])
+        # intersection
+        Iw = torch.clamp(torch.minimum(bboxes1[:, 2], bboxes2[:, 2])-torch.maximum(bboxes1[:, 0], bboxes2[:, 0]), min=0)
+        Ih = torch.clamp(torch.minimum(bboxes1[:, 3], bboxes2[:, 3])-torch.maximum(bboxes1[:, 1], bboxes2[:, 1]), min=0)
+        I = Iw*Ih
+        # union
+        U = A1 + A2 - I
+        # result
+        IoU = (I+smooth) / (U+smooth)
+        return 1-IoU
+    return f
+
+def GIoU(do_validation, smooth=1):
+    '''Implements the loss from [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.'''
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
@@ -52,7 +73,7 @@ def GIoU(do_validation):
         # union
         U = A1 + A2 - I
         # result
-        IoU = I / (U+1e-7)
-        GIoU = IoU - (E-U)/(E+1e-7)
+        IoU = (I+smooth) / (U+smooth)
+        GIoU = IoU - (E-U+smooth)/(E+smooth)
         return 1-GIoU
     return f

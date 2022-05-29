@@ -60,8 +60,29 @@ def ValidBboxes(bboxes):
         torch.maximum(bboxes[:, 1], bboxes[:, 3]),
     ), 1)
 
-def GIoU(do_validation):
-    &#39;&#39;&#39;Implements the [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.&#39;&#39;&#39;
+def IoU(do_validation, smooth=1):
+    &#39;&#39;&#39;Implements loss 1-IoU (Intersection over Union).&#39;&#39;&#39;
+    def f(bboxes1, bboxes2):
+        # ensure bounding boxes make sense
+        if do_validation:
+            bboxes1 = ValidBboxes(bboxes1)
+            bboxes2 = ValidBboxes(bboxes2)
+        # area of each
+        A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
+        A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])
+        # intersection
+        Iw = torch.clamp(torch.minimum(bboxes1[:, 2], bboxes2[:, 2])-torch.maximum(bboxes1[:, 0], bboxes2[:, 0]), min=0)
+        Ih = torch.clamp(torch.minimum(bboxes1[:, 3], bboxes2[:, 3])-torch.maximum(bboxes1[:, 1], bboxes2[:, 1]), min=0)
+        I = Iw*Ih
+        # union
+        U = A1 + A2 - I
+        # result
+        IoU = (I+smooth) / (U+smooth)
+        return 1-IoU
+    return f
+
+def GIoU(do_validation, smooth=1):
+    &#39;&#39;&#39;Implements the loss from [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
@@ -81,8 +102,8 @@ def GIoU(do_validation):
         # union
         U = A1 + A2 - I
         # result
-        IoU = I / (U+1e-7)
-        GIoU = IoU - (E-U)/(E+1e-7)
+        IoU = (I+smooth) / (U+smooth)
+        GIoU = IoU - (E-U+smooth)/(E+smooth)
         return 1-GIoU
     return f</code></pre>
 </details>
@@ -111,16 +132,16 @@ def GIoU(do_validation):
 </details>
 </dd>
 <dt id="losses.GIoU"><code class="name flex">
-<span>def <span class="ident">GIoU</span></span>(<span>do_validation)</span>
+<span>def <span class="ident">GIoU</span></span>(<span>do_validation, smooth=1)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Implements the <a href="https://giou.stanford.edu/">Generalized Intersection over Union paper</a>, used by papers such as FCOS.</p></div>
+<div class="desc"><p>Implements the loss from <a href="https://giou.stanford.edu/">Generalized Intersection over Union paper</a>, used by papers such as FCOS.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def GIoU(do_validation):
-    &#39;&#39;&#39;Implements the [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.&#39;&#39;&#39;
+<pre><code class="python">def GIoU(do_validation, smooth=1):
+    &#39;&#39;&#39;Implements the loss from [Generalized Intersection over Union paper](https://giou.stanford.edu/), used by papers such as FCOS.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
@@ -140,9 +161,40 @@ def GIoU(do_validation):
         # union
         U = A1 + A2 - I
         # result
-        IoU = I / (U+1e-7)
-        GIoU = IoU - (E-U)/(E+1e-7)
+        IoU = (I+smooth) / (U+smooth)
+        GIoU = IoU - (E-U+smooth)/(E+smooth)
         return 1-GIoU
+    return f</code></pre>
+</details>
+</dd>
+<dt id="losses.IoU"><code class="name flex">
+<span>def <span class="ident">IoU</span></span>(<span>do_validation, smooth=1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Implements loss 1-IoU (Intersection over Union).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def IoU(do_validation, smooth=1):
+    &#39;&#39;&#39;Implements loss 1-IoU (Intersection over Union).&#39;&#39;&#39;
+    def f(bboxes1, bboxes2):
+        # ensure bounding boxes make sense
+        if do_validation:
+            bboxes1 = ValidBboxes(bboxes1)
+            bboxes2 = ValidBboxes(bboxes2)
+        # area of each
+        A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
+        A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])
+        # intersection
+        Iw = torch.clamp(torch.minimum(bboxes1[:, 2], bboxes2[:, 2])-torch.maximum(bboxes1[:, 0], bboxes2[:, 0]), min=0)
+        Ih = torch.clamp(torch.minimum(bboxes1[:, 3], bboxes2[:, 3])-torch.maximum(bboxes1[:, 1], bboxes2[:, 1]), min=0)
+        I = Iw*Ih
+        # union
+        U = A1 + A2 - I
+        # result
+        IoU = (I+smooth) / (U+smooth)
+        return 1-IoU
     return f</code></pre>
 </details>
 </dd>
@@ -202,6 +254,7 @@ def GIoU(do_validation):
 <ul class="">
 <li><code><a title="losses.ConvertRel2Abs" href="#losses.ConvertRel2Abs">ConvertRel2Abs</a></code></li>
 <li><code><a title="losses.GIoU" href="#losses.GIoU">GIoU</a></code></li>
+<li><code><a title="losses.IoU" href="#losses.IoU">IoU</a></code></li>
 <li><code><a title="losses.ValidBboxes" href="#losses.ValidBboxes">ValidBboxes</a></code></li>
 <li><code><a title="losses.convert_rel2abs" href="#losses.convert_rel2abs">convert_rel2abs</a></code></li>
 </ul>
