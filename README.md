@@ -138,7 +138,7 @@ model = model.cuda()
 
 ```python
 import torch
-tr = torch.utils.data.DataLoader(ds, 32, True, num_workers=6)
+tr = torch.utils.data.DataLoader(ds, 32, True, num_workers=6, pin_memory=True)
 opt = torch.optim.Adam(model.parameters())
 
 weight_loss_fns = {

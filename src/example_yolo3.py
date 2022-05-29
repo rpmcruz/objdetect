@@ -58,10 +58,10 @@ inv_transforms = od.inv_grid.MultiLevelInvTransform(
 ######################## DATA ########################
 
 tr = od.data.VOCDetection('/data', 'train', None, dict_transform)
-tr = torch.utils.data.DataLoader(tr, 32, True, num_workers=6)
+tr = torch.utils.data.DataLoader(tr, 32, True, num_workers=6, pin_memory=True)
 
 ts = od.data.VOCDetection('/data', 'val', None, val_dict_transforms)
-ts = torch.utils.data.DataLoader(ts, 32, num_workers=6)
+ts = torch.utils.data.DataLoader(ts, 32, num_workers=6, pin_memory=True)
 
 ######################## MODEL ########################
 
