@@ -119,3 +119,18 @@ class FilterClass(Dataset):
 
     def __getitem__(self, i):
         return self.ds[self.ix[i]]
+
+class Memoization(Dataset):
+    '''Cache the dataset in RAM.'''
+
+    def __init__(self, ds):
+        self.ds = ds
+        self.cache = [None] * len(ds)
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, i):
+        if self.cache[i] is None:
+            self.cache[i] = self.ds[i]
+        return self.cache[i]

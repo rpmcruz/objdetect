@@ -80,6 +80,15 @@ def RandomCrop(crop_H, crop_W):
         return {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, **data}
     return f
 
+def SortBboxesByArea(descending=True):
+    &#39;&#39;&#39;Some papers like FCOS assign the smaller bbox on location ambiguities. We can reproduce that by simply ordering the bboxes.&#39;&#39;&#39;
+    def f(bboxes, **data):
+        areas = (bboxes[:, 2]-bboxes[:, 0])*(bboxes[:, 3]-bboxes[:, 1])
+        ix = np.argsort(areas)[::-1] if descending else np.argsort(areas)
+        bboxes = bboxes[ix]
+        return {&#39;bboxes&#39;: bboxes, **data}
+    return f
+
 def Compose(*transformations):
     &#39;&#39;&#39;Applies the given `transformations` in succession.&#39;&#39;&#39;
     def f(**data):
@@ -200,6 +209,25 @@ def Compose(*transformations):
     return f</code></pre>
 </details>
 </dd>
+<dt id="aug.SortBboxesByArea"><code class="name flex">
+<span>def <span class="ident">SortBboxesByArea</span></span>(<span>descending=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Some papers like FCOS assign the smaller bbox on location ambiguities. We can reproduce that by simply ordering the bboxes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SortBboxesByArea(descending=True):
+    &#39;&#39;&#39;Some papers like FCOS assign the smaller bbox on location ambiguities. We can reproduce that by simply ordering the bboxes.&#39;&#39;&#39;
+    def f(bboxes, **data):
+        areas = (bboxes[:, 2]-bboxes[:, 0])*(bboxes[:, 3]-bboxes[:, 1])
+        ix = np.argsort(areas)[::-1] if descending else np.argsort(areas)
+        bboxes = bboxes[ix]
+        return {&#39;bboxes&#39;: bboxes, **data}
+    return f</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -218,6 +246,7 @@ def Compose(*transformations):
 <li><code><a title="aug.RandomCrop" href="#aug.RandomCrop">RandomCrop</a></code></li>
 <li><code><a title="aug.RandomHflip" href="#aug.RandomHflip">RandomHflip</a></code></li>
 <li><code><a title="aug.ResizeAndNormalize" href="#aug.ResizeAndNormalize">ResizeAndNormalize</a></code></li>
+<li><code><a title="aug.SortBboxesByArea" href="#aug.SortBboxesByArea">SortBboxesByArea</a></code></li>
 </ul>
 </li>
 </ul>

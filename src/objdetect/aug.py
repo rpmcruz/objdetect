@@ -51,6 +51,15 @@ def RandomCrop(crop_H, crop_W):
         return {'image': image, 'bboxes': bboxes, **data}
     return f
 
+def SortBboxesByArea(descending=True):
+    '''Some papers like FCOS assign the smaller bbox on location ambiguities. We can reproduce that by simply ordering the bboxes.'''
+    def f(bboxes, **data):
+        areas = (bboxes[:, 2]-bboxes[:, 0])*(bboxes[:, 3]-bboxes[:, 1])
+        ix = np.argsort(areas)[::-1] if descending else np.argsort(areas)
+        bboxes = bboxes[ix]
+        return {'bboxes': bboxes, **data}
+    return f
+
 def Compose(*transformations):
     '''Applies the given `transformations` in succession.'''
     def f(**data):

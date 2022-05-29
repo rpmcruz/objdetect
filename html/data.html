@@ -147,7 +147,22 @@ class FilterClass(Dataset):
         return len(self.ix)
 
     def __getitem__(self, i):
-        return self.ds[self.ix[i]]</code></pre>
+        return self.ds[self.ix[i]]
+
+class Memoization(Dataset):
+    &#39;&#39;&#39;Cache the dataset in RAM.&#39;&#39;&#39;
+
+    def __init__(self, ds):
+        self.ds = ds
+        self.cache = [None] * len(ds)
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, i):
+        if self.cache[i] is None:
+            self.cache[i] = self.ds[i]
+        return self.cache[i]</code></pre>
 </details>
 </section>
 <section>
@@ -300,6 +315,37 @@ class FilterClass(Dataset):
 </dd>
 </dl>
 </dd>
+<dt id="data.Memoization"><code class="flex name class">
+<span>class <span class="ident">Memoization</span></span>
+<span>(</span><span>ds)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Cache the dataset in RAM.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Memoization(Dataset):
+    &#39;&#39;&#39;Cache the dataset in RAM.&#39;&#39;&#39;
+
+    def __init__(self, ds):
+        self.ds = ds
+        self.cache = [None] * len(ds)
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, i):
+        if self.cache[i] is None:
+            self.cache[i] = self.ds[i]
+        return self.cache[i]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+</dd>
 <dt id="data.VOCDetection"><code class="flex name class">
 <span>class <span class="ident">VOCDetection</span></span>
 <span>(</span><span>root, fold, my_transform, download=False)</span>
@@ -373,6 +419,9 @@ class FilterClass(Dataset):
 <ul class="">
 <li><code><a title="data.KITTIDetection.labels" href="#data.KITTIDetection.labels">labels</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="data.Memoization" href="#data.Memoization">Memoization</a></code></h4>
 </li>
 <li>
 <h4><code><a title="data.VOCDetection" href="#data.VOCDetection">VOCDetection</a></code></h4>
