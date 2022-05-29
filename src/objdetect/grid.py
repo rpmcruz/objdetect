@@ -112,9 +112,8 @@ def SetRelBboxes():
     def f(grid, yy, xx, datum, i):
         bbox = datum['bboxes'][i]
         _, h, w = grid.shape
-        _yy, _xx = torch.meshgrid(
-            torch.arange(yy.start, yy.stop), torch.arange(xx.start, xx.stop),
-            indexing='xy')
+        _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32)[None, :]
+        _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32)[:, None]
         grid[0, yy, xx] = (_xx/w) - bbox[0]
         grid[1, yy, xx] = (_yy/h) - bbox[1]
         grid[2, yy, xx] = bbox[2] - (_xx/w)
@@ -133,9 +132,8 @@ def SetCenterness():
     def f(grid, yy, xx, datum, i):
         bbox = datum['bboxes'][i]
         _, h, w = grid.shape
-        _yy, _xx = torch.meshgrid(
-            torch.arange(yy.start, yy.stop), torch.arange(xx.start, xx.stop),
-            indexing='xy')
+        _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32)[None, :]
+        _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32)[:, None]
         L = (_xx/w) - bbox[0]
         T = (_yy/h) - bbox[1]
         R = bbox[2] - (_xx/w)

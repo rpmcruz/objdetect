@@ -21,7 +21,8 @@ def InvRelBboxes():
     def f(ix, key, datum):
         bboxes = datum[key]
         _, h, w = bboxes.shape
-        yy, xx = torch.meshgrid(torch.arange(0, h), torch.arange(0, w), indexing='xy')
+        xx = torch.arange(0, w, dtype=torch.float32)[None, :]
+        yy = torch.arange(0, h, dtype=torch.float32)[:, None]
         bboxes_offset = torch.stack((
             xx/w-bboxes[0], yy/h-bboxes[1],
             bboxes[2]+xx/w, bboxes[3]+yy/h
@@ -34,7 +35,8 @@ def InvOffsetSizeBboxes():
     def f(ix, key, datum):
         bboxes = datum[key]
         _, h, w = bboxes.shape
-        yy, xx = torch.meshgrid(torch.arange(0, h), torch.arange(0, w), indexing='xy')
+        xx = torch.arange(0, w, dtype=torch.float32)[None, :]
+        yy = torch.arange(0, h, dtype=torch.float32)[:, None]
         xc = (xx+bboxes[0])/w
         yc = (yy+bboxes[1])/h
         bw = torch.exp(bboxes[2])
@@ -53,7 +55,8 @@ def InvOffsetSizeBboxesAnchor(anchors):
         ph, pw = anchors[int(pattern.search(key).group(1))]  # a bit ugly
         bboxes = datum[key]
         _, h, w = bboxes.shape
-        yy, xx = torch.meshgrid(torch.arange(0, h), torch.arange(0, w), indexing='xy')
+        xx = torch.arange(0, w, dtype=torch.float32)[None, :]
+        yy = torch.arange(0, h, dtype=torch.float32)[:, None]
         xc = (xx+bboxes[0])/w
         yc = (yy+bboxes[1])/h
         bw = pw * torch.exp(bboxes[2])

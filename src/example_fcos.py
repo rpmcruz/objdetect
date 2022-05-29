@@ -40,7 +40,7 @@ dict_transform = od.aug.Compose([
 
 val_dict_transform = od.aug.Compose([
     od.aug.Resize(256, 256),
-    *grid_transform,
+    *grid_transforms,
     od.grid.RemoveKeys(['bboxes', 'classes'])
 ])
 
@@ -60,7 +60,7 @@ ts = torch.utils.data.DataLoader(ts, 32, num_workers=6, pin_memory=True)
 
 ######################## MODEL ########################
 
-backbone = od.models.SimpleBackbone([True]*5, [32, 64, 128, 256, 512], False)
+backbone = od.models.SimpleBackbone([32, 64, 128, 256, 512], False)
 heads = [{
     f'hasobjs{i}': od.models.HeadHasObjs(32*2**i),
     f'bboxes{i}': od.models.HeadExpBboxes(32*2**i),
@@ -89,7 +89,7 @@ loss_fns = od.grid.merge_dicts([{
     f'centerness{i}': nn.BCEWithLogitsLoss(reduction='none'),
 } for i in range(NLEVELS)])
 
-od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 1000, od.loop.StopPatience())
+od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100, od.loop.StopPatience())
 
 ######################## EVALUATE ########################
 

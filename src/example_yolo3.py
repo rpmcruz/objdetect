@@ -87,7 +87,7 @@ loss_fns = od.grid.merge_dicts([{
     f'classes{i}': nn.CrossEntropyLoss(reduction='none'),
 } for i in range(NANCHORS)])
 
-od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 1000, od.loop.StopPatience())
+od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100, od.loop.StopPatience())
 
 ######################## EVALUATE ########################
 
