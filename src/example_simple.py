@@ -11,6 +11,9 @@ import torch
 import matplotlib.pyplot as plt
 import objdetect as od
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print('Using', device)
+
 NCLASSES = len(od.data.VOCDetection.labels)
 
 ######################## GRID & AUG ########################
@@ -54,7 +57,7 @@ ts = torch.utils.data.DataLoader(ts, 32, num_workers=6)
 backbone = od.models.SimpleBackbone([32, 64, 128, 256, 512], False)
 heads = [{}]*4 + [{'hasobjs': od.models.HeadHasObjs(512), 'bboxes': od.models.HeadExpBboxes(512), 'classes': od.models.HeadClasses(512, NCLASSES)}]
 model = od.models.Model(backbone, heads)
-model = model.cuda()
+model = model.to(device)
 print(summary(model, (10, 3, 256, 256)))
 
 ######################## TRAIN ########################

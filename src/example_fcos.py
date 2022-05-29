@@ -12,6 +12,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import objdetect as od
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print('Using', device)
+
 NCLASSES = len(od.data.VOCDetection.labels)
 GRID_SIZES = [(128, 128), (64, 64), (32, 32), (16, 16), (8, 8)]
 NLEVELS = len(GRID_SIZES)
@@ -65,8 +68,7 @@ heads = [{
     f'centerness{i}': od.models.HeadHasObjs(32*2**i),
 } for i in range(NLEVELS)]
 model = od.models.Model(backbone, heads)
-model = model.cuda()
-print(model)
+model = model.to(device)
 print(summary(model, (10, 3, 256, 256)))
 
 ######################## TRAIN ########################
