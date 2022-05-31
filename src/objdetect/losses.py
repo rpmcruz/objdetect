@@ -25,10 +25,10 @@ def ConvertRel2Abs(loss_fn):
 def ValidBboxes(bboxes):
     '''Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2<x1 or y2<y1.'''
     return torch.stack((
-        torch.minimum(bboxes[:, 0], bboxes[:, 2]),
-        torch.minimum(bboxes[:, 1], bboxes[:, 3]),
-        torch.maximum(bboxes[:, 0], bboxes[:, 2]),
-        torch.maximum(bboxes[:, 1], bboxes[:, 3]),
+        torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
+        torch.clamp(torch.minimum(bboxes[:, 1], bboxes[:, 3]), min=0),
+        torch.clamp(torch.maximum(bboxes[:, 0], bboxes[:, 2]), max=1),
+        torch.clamp(torch.maximum(bboxes[:, 1], bboxes[:, 3]), max=1),
     ), 1)
 
 def IoU(do_validation, smooth=1):
