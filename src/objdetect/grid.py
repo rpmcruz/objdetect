@@ -4,6 +4,14 @@ In one-shot object detection, we need to transform the input onto a grid to comp
 
 import torch
 
+def SliceAcrossBbox():
+    '''Choose all grid locations that contain the entirety of the object, even if partially.'''
+    def f(h, w, bbox):
+        yy = slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h)))
+        xx = slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w)))
+        return yy, xx
+    return f
+
 def SliceAcrossCeilBbox():
     '''Choose all grid locations that contain the entirety of the object (similar to FCOS).'''
     def f(h, w, bbox):

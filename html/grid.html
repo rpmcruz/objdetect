@@ -33,6 +33,14 @@ In one-shot object detection, we need to transform the input onto a grid to comp
 
 import torch
 
+def SliceAcrossBbox():
+    &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object, even if partially.&#39;&#39;&#39;
+    def f(h, w, bbox):
+        yy = slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h)))
+        xx = slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w)))
+        return yy, xx
+    return f
+
 def SliceAcrossCeilBbox():
     &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object (similar to FCOS).&#39;&#39;&#39;
     def f(h, w, bbox):
@@ -456,6 +464,24 @@ def merge_dicts(l):
     return f</code></pre>
 </details>
 </dd>
+<dt id="grid.SliceAcrossBbox"><code class="name flex">
+<span>def <span class="ident">SliceAcrossBbox</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Choose all grid locations that contain the entirety of the object, even if partially.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SliceAcrossBbox():
+    &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object, even if partially.&#39;&#39;&#39;
+    def f(h, w, bbox):
+        yy = slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h)))
+        xx = slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w)))
+        return yy, xx
+    return f</code></pre>
+</details>
+</dd>
 <dt id="grid.SliceAcrossCeilBbox"><code class="name flex">
 <span>def <span class="ident">SliceAcrossCeilBbox</span></span>(<span>)</span>
 </code></dt>
@@ -575,6 +601,7 @@ def merge_dicts(l):
 <li><code><a title="grid.SetOffsetSizeBboxesAnchor" href="#grid.SetOffsetSizeBboxesAnchor">SetOffsetSizeBboxesAnchor</a></code></li>
 <li><code><a title="grid.SetRelBboxes" href="#grid.SetRelBboxes">SetRelBboxes</a></code></li>
 <li><code><a title="grid.SizeFilter" href="#grid.SizeFilter">SizeFilter</a></code></li>
+<li><code><a title="grid.SliceAcrossBbox" href="#grid.SliceAcrossBbox">SliceAcrossBbox</a></code></li>
 <li><code><a title="grid.SliceAcrossCeilBbox" href="#grid.SliceAcrossCeilBbox">SliceAcrossCeilBbox</a></code></li>
 <li><code><a title="grid.SliceOnlyCenterBbox" href="#grid.SliceOnlyCenterBbox">SliceOnlyCenterBbox</a></code></li>
 <li><code><a title="grid.Transform" href="#grid.Transform">Transform</a></code></li>
