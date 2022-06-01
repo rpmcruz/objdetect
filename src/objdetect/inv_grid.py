@@ -70,6 +70,9 @@ def InvOffsetSizeBboxesAnchor(anchors):
 def InvClasses():
     '''Inverts the classes grid to a list of classes.'''
     def f(ix, key, datum):
+        if ix.shape == datum[key].shape:
+            # special case when classes are not probabilities (e.g. inputs)
+            return datum[key][ix]
         return datum[key].argmax(0)[ix]
     return f
 

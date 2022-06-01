@@ -2,6 +2,7 @@
 requires = [
     "torch",
     "scikit-learn",
+    "tqdm",
     "setuptools>=42",
     "wheel"
 ]

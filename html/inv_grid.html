@@ -99,6 +99,9 @@ def InvOffsetSizeBboxesAnchor(anchors):
 def InvClasses():
     &#39;&#39;&#39;Inverts the classes grid to a list of classes.&#39;&#39;&#39;
     def f(ix, key, datum):
+        if ix.shape == datum[key].shape:
+            # special case when classes are not probabilities (e.g. inputs)
+            return datum[key][ix]
         return datum[key].argmax(0)[ix]
     return f
 
@@ -140,6 +143,9 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <pre><code class="python">def InvClasses():
     &#39;&#39;&#39;Inverts the classes grid to a list of classes.&#39;&#39;&#39;
     def f(ix, key, datum):
+        if ix.shape == datum[key].shape:
+            # special case when classes are not probabilities (e.g. inputs)
+            return datum[key][ix]
         return datum[key].argmax(0)[ix]
     return f</code></pre>
 </details>

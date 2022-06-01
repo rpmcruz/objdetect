@@ -10,6 +10,7 @@ def same(bi, bj):
 
 def NMS(H, B, *others, lambda_nms=0.5):
     '''Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes. The `others` parameter allows passing other values which are also returned together with the filtered bounding boxes.'''
+    Hnms = []
     Bnms = []
     Onms = [[] * len(others)]
     for i, (hi, bi) in enumerate(zip(H, B)):
@@ -19,7 +20,8 @@ def NMS(H, B, *others, lambda_nms=0.5):
                 discard = True
                 break
         if not discard:
+            Hnms.append(hi)
             Bnms.append(bi)
             for oi, o in enumerate(others):
                 Onms[oi].append(o[i])
-    return Bnms, *Onms
+    return Hnms, Bnms, *Onms
