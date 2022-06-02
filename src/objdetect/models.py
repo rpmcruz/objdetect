@@ -35,7 +35,7 @@ class SimpleBackbone(nn.Module):
             x = F.relu(x)
         return outs
 
-class HeadHasObjs(nn.Module):
+class HeadScores(nn.Module):
     '''Produces a 1xHxW output. If in eval mode, then a sigmoid is applied.'''
     def __init__(self, ninputs):
         super().__init__()

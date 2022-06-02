@@ -60,7 +60,7 @@ def AnchorFilter(anchor, min_iou):
 
 ###########################################################
 
-def NewHasObj():
+def NewScore():
     '''Grid 1xhxw.'''
     def f(h, w):
         return torch.zeros((1, h, w), dtype=torch.float32)
@@ -78,11 +78,11 @@ def NewClasses():
         return torch.zeros((h, w), dtype=torch.int64)
     return f
 
-NewCenterness = NewHasObj
+NewCenterness = NewScore
 
 ###########################################################
 
-def SetHasObj():
+def SetScore():
     '''Sets 1 wherever the object is, according to the given slicing.'''
     def f(grid, yy, xx, datum, i):
         grid[:, yy, xx] = 1

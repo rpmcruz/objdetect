@@ -25,8 +25,8 @@ grid_transforms = [od.grid.Transform(
     grid_size,
     od.grid.SizeFilter(0 if i == 0 else 4, np.inf if i == NLEVELS-1 else 8),
     od.grid.SliceAcrossCeilBbox(),
-    {f'hasobjs{i}': od.grid.NewHasObj(), f'bboxes{i}': od.grid.NewBboxes(), f'classes{i}': od.grid.NewClasses(), f'centerness{i}': od.grid.NewCenterness()},
-    {f'hasobjs{i}': od.grid.SetHasObj(), f'bboxes{i}': od.grid.SetRelBboxes(), f'classes{i}': od.grid.SetClasses(), f'centerness{i}': od.grid.SetCenterness()},
+    {f'scores{i}': od.grid.NewScore(), f'bboxes{i}': od.grid.NewBboxes(), f'classes{i}': od.grid.NewClasses(), f'centerness{i}': od.grid.NewCenterness()},
+    {f'scores{i}': od.grid.SetScore(), f'bboxes{i}': od.grid.SetRelBboxes(), f'classes{i}': od.grid.SetClasses(), f'centerness{i}': od.grid.SetCenterness()},
 ) for i, grid_size in enumerate(GRID_SIZES)]
 
 dict_transform = od.aug.Compose([
@@ -45,9 +45,9 @@ val_dict_transform = od.aug.Compose([
 ])
 
 inv_transforms = od.inv_grid.MultiLevelInvTransform(
-    [lambda datum, i=i: datum[f'hasobjs{i}'][0] >= 0.5 for i in range(NLEVELS)],
-    {'hasobjs': [f'hasobjs{i}' for i in range(NLEVELS)], 'bboxes': [f'bboxes{i}' for i in range(NLEVELS)], 'classes': [f'classes{i}' for i in range(NLEVELS)]},
-    {'hasobjs': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes(), 'classes': od.inv_grid.InvClasses()}
+    [lambda datum, i=i: datum[f'scores{i}'][0] >= 0.5 for i in range(NLEVELS)],
+    {'scores': [f'scores{i}' for i in range(NLEVELS)], 'bboxes': [f'bboxes{i}' for i in range(NLEVELS)], 'classes': [f'classes{i}' for i in range(NLEVELS)]},
+    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes(), 'classes': od.inv_grid.InvClasses()}
 )
 
 ######################## DATA ########################
@@ -62,10 +62,10 @@ ts = torch.utils.data.DataLoader(ts, 32, num_workers=6, pin_memory=True)
 
 backbone = od.models.SimpleBackbone([32, 64, 128, 256, 512], False)
 heads = [{
-    f'hasobjs{i}': od.models.HeadHasObjs(32*2**i),
+    f'scores{i}': od.models.HeadScores(32*2**i),
     f'bboxes{i}': od.models.HeadExpBboxes(32*2**i),
     f'classes{i}': od.models.HeadClasses(32*2**i, NCLASSES),
-    f'centerness{i}': od.models.HeadHasObjs(32*2**i),
+    f'centerness{i}': od.models.HeadScores(32*2**i),
 } for i in range(NLEVELS)]
 model = od.models.Model(backbone, heads)
 model = model.to(device)
@@ -76,14 +76,14 @@ print(summary(model, (10, 3, 256, 256)))
 opt = torch.optim.Adam(model.parameters())
 
 weight_loss_fns = od.grid.merge_dicts([{
-    f'hasobjs{i}': lambda data: 1,
-    f'bboxes{i}': lambda data, i=i: data[f'hasobjs{i}'],
-    f'classes{i}': lambda data, i=i: data[f'hasobjs{i}'],
-    f'centerness{i}': lambda data, i=i: data[f'hasobjs{i}'],
+    f'scores{i}': lambda data: 1,
+    f'bboxes{i}': lambda data, i=i: data[f'scores{i}'],
+    f'classes{i}': lambda data, i=i: data[f'scores{i}'],
+    f'centerness{i}': lambda data, i=i: data[f'scores{i}'],
 } for i in range(NLEVELS)])
 loss_fns = od.grid.merge_dicts([{
     # we could use sigmoid_focal_loss like RetinaNet
-    f'hasobjs{i}': nn.BCEWithLogitsLoss(reduction='none'),
+    f'scores{i}': nn.BCEWithLogitsLoss(reduction='none'),
     f'bboxes{i}': od.losses.ConvertRel2Abs(od.losses.GIoU(False)),
     f'classes{i}': nn.CrossEntropyLoss(reduction='none'),
     f'centerness{i}': nn.BCEWithLogitsLoss(reduction='none'),
@@ -99,12 +99,12 @@ inputs, outputs = od.loop.eval(ts, model)
 LAMBDA_NMS = 0.5
 for i in range(4):
     inv_outputs = inv_transforms(outputs[i])
-    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['hasobjs'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=LAMBDA_NMS)
+    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['scores'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=LAMBDA_NMS)
 
     for j in range(2):
         plt.subplot(2, 4, j*4+i+1)
         od.plot.image(inputs[i]['image'])
-        od.plot.grid_bools(inputs[i]['image'], outputs[i][f'hasobjs{j}'][0])
+        od.plot.grid_bools(inputs[i]['image'], outputs[i][f'scores{j}'][0])
         od.plot.grid_lines(inputs[i]['image'], *GRID_SIZES[j])
         od.plot.bboxes(inputs[i]['image'], inv_bboxes)
         od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)

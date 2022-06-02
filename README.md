@@ -43,7 +43,7 @@ This package relies heavily on two things: (i) dictionaries to bind everything t
 
 **Grid:** When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). We recommend doing it as the final step of the data augmentation pipeline. Doing it this way takes advantage of DataLoader parallelization. For the transformation pipeline, we provide methods that function similarly to the [albumentations package](https://albumentations.ai/), and, in fact, should be compatible with it so that you may use albumentations if you wish.
 
-Let us build three grids specifying whether an object is occupying the given location (`hasobjs`), the classes grid (`classes`), and the bounding boxes information grid (`bboxes`).
+Let us build three grids specifying whether an object is occupying the given location (`scores`), the classes grid (`classes`), and the bounding boxes information grid (`bboxes`).
 
 ```python
 import objdetect as od
@@ -54,12 +54,12 @@ filter_function = None
 # which locations are occupied by the object
 slicing_function = od.grid.SliceAcrossCeilBbox()
 create_grids = {
-    'hasobjs': od.grid.NewHasObj(),
+    'scores': od.grid.NewScore(),
     'classes': od.grid.NewClasses(),
     'bboxes': od.grid.NewBboxes()
 }
 map_grids = {
-    'hasobjs': od.grid.SetHasObj(),
+    'scores': od.grid.SetScore(),
     'classes': od.grid.SetClasses(),
     'bboxes': od.grid.SetRelBboxes()
 }
@@ -85,28 +85,28 @@ for k, v in d.items():
 Output:
 
 ```
-contains: dict_keys(['image', 'bboxes', 'classes', 'hasobjs'])
+contains: dict_keys(['image', 'bboxes', 'classes', 'scores'])
 image (256, 256, 3)
 bboxes (4, 8, 8)
 classes (8, 8)
-hasobjs (1, 8, 8)
+scores (1, 8, 8)
 ```
 
-Plot the `hasobjs` and `classes` matrices grids:
+Plot the `scores` and `classes` matrices grids:
 
 ```python
 import matplotlib.pyplot as plt
 d = ds[0]
 plt.imshow(d['image'])
 od.plot.grid_lines(d['image'], 8, 8)
-od.plot.grid_bools(d['image'], d['hasobjs'][0])
-od.plot.grid_text(d['image'], d['classes'] + d['hasobjs'][0].astype(int))
+od.plot.grid_bools(d['image'], d['scores'][0])
+od.plot.grid_text(d['image'], d['classes'] + d['scores'][0].astype(int))
 plt.show()
 ```
 
 ![Grids output](imgs/grids.png)
 
-(The reason why we sum `classes` and `hasobjs` is to distinguish between no-class (0) and class=0.)
+(The reason why we sum `classes` and `scores` is to distinguish between no-class (0) and class=0.)
 
 Please notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`slice_fn=od.grid.SliceOnlyCenterBbox()`), and the bounding box would specify the center offset and size (`'bboxes': od.grid.SetCenterSizeBboxesOnce()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations it touches, and the bounding box would be set relative (as in the previous code).
 
@@ -127,7 +127,7 @@ Our `SimpleBackend()` just applies successive stride-2 convolutions for the same
 
 ```python
 backbone = od.models.SimpleBackbone([False]*4 + [True])
-heads = [{'hasobjs': od.models.HeadHasObjs(512), 'classes': od.models.HeadClasses(512, 20), 'bboxes': od.models.HeadExpBboxes(512)}]
+heads = [{'scores': od.models.HeadScores(512), 'classes': od.models.HeadClasses(512, 20), 'bboxes': od.models.HeadExpBboxes(512)}]
 model = od.models.Model(backbone, heads)
 model = model.cuda()
 ```
@@ -142,12 +142,12 @@ tr = torch.utils.data.DataLoader(ds, 32, True, num_workers=6, pin_memory=True)
 opt = torch.optim.Adam(model.parameters())
 
 weight_loss_fns = {
-    'hasobjs': lambda data: 1,
-    'bboxes': lambda data: data['hasobjs'],
-    'classes': lambda data: data['hasobjs'],
+    'scores': lambda data: 1,
+    'bboxes': lambda data: data['scores'],
+    'classes': lambda data: data['scores'],
 }
 loss_fns = {
-    'hasobjs': torch.nn.BCEWithLogitsLoss(reduction='none'),
+    'scores': torch.nn.BCEWithLogitsLoss(reduction='none'),
     'classes': torch.nn.CrossEntropyLoss(reduction='none'),
     'bboxes':  od.losses.ConvertRel2Abs(od.losses.GIoU(False)),
 }
@@ -167,15 +167,15 @@ The grids produced by the model must be inverted. For that several methods are p
 
 ```python
 inv_transforms = od.inv_grid.InvTransform(
-    lambda datum: datum['hasobjs'][0] >= 0.5,
-    {'hasobjs': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes()}
+    lambda datum: datum['scores'][0] >= 0.5,
+    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes()}
 )
 
 
 
 inv_transforms = od.inv_grid.InvTransform(
-    lambda datum: datum['hasobjs'][0] >= 0.5,
-    {'hasobjs': od.inv_grid.InvScoresWithClasses('classes'), 'classes': od.inv_grid.InvClasses(), 'bboxes': od.inv_grid.InvRelBboxes()}
+    lambda datum: datum['scores'][0] >= 0.5,
+    {'scores': od.inv_grid.InvScoresWithClasses('classes'), 'classes': od.inv_grid.InvClasses(), 'bboxes': od.inv_grid.InvRelBboxes()}
 )
 ```
 
@@ -186,7 +186,7 @@ import numpy as np
 i = np.random.choice(len(outputs))
 plt.imshow(inputs[i]['image'])
 inv_outputs = inv_transforms(outputs[i])
-inv_bboxes, inv_classes = od.post.NMS(inv_outputs['hasobjs'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
+inv_bboxes, inv_classes = od.post.NMS(inv_outputs['scores'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
 od.plot.bboxes(inputs[i]['image'], inv_bboxes)
 od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)
 plt.show()
@@ -201,7 +201,7 @@ When using multiple grids, then the method `od.inv_grid.MultiLevelInvTransform()
 ```python
 inv_inputs = [inv_transforms(i) for i in inputs]
 inv_outputs = [inv_transforms(o) for o in outputs]
-precision, recall = od.metrics.precision_recall_curve([o['hasobjs'] for o in inv_outputs], [i['bboxes'] for i in inv_inputs], [o['bboxes'] for o in inv_outputs], 0.5)
+precision, recall = od.metrics.precision_recall_curve([o['scores'] for o in inv_outputs], [i['bboxes'] for i in inv_inputs], [o['bboxes'] for o in inv_outputs], 0.5)
 plt.plot(precision, recall)
 plt.show()
 ```

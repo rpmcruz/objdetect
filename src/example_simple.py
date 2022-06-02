@@ -22,8 +22,8 @@ grid_transform = od.grid.Transform(
     (8, 8),
     None,
     od.grid.SliceOnlyCenterBbox(),
-    {'hasobjs': od.grid.NewHasObj(), 'bboxes': od.grid.NewBboxes(), 'classes': od.grid.NewClasses()},
-    {'hasobjs': od.grid.SetHasObj(), 'bboxes': od.grid.SetOffsetSizeBboxes(), 'classes': od.grid.SetClasses()}
+    {'scores': od.grid.NewScore(), 'bboxes': od.grid.NewBboxes(), 'classes': od.grid.NewClasses()},
+    {'scores': od.grid.SetScore(), 'bboxes': od.grid.SetOffsetSizeBboxes(), 'classes': od.grid.SetClasses()}
 )
 
 dict_transform = od.aug.Compose([
@@ -40,8 +40,8 @@ val_dict_transform = od.aug.Compose([
 ])
 
 inv_transforms = od.inv_grid.InvTransform(
-    lambda datum: datum['hasobjs'][0] >= 0.5,
-    {'hasobjs': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvOffsetSizeBboxes(), 'classes': od.inv_grid.InvClasses()}
+    lambda datum: datum['scores'][0] >= 0.5,
+    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvOffsetSizeBboxes(), 'classes': od.inv_grid.InvClasses()}
 )
 
 ######################## DATA ########################
@@ -55,7 +55,7 @@ ts = torch.utils.data.DataLoader(ts, 32, num_workers=6, pin_memory=True)
 ######################## MODEL ########################
 
 backbone = od.models.SimpleBackbone([32, 64, 128, 256, 512], False)
-heads = [{}]*4 + [{'hasobjs': od.models.HeadHasObjs(512), 'bboxes': od.models.HeadExpBboxes(512), 'classes': od.models.HeadClasses(512, NCLASSES)}]
+heads = [{}]*4 + [{'scores': od.models.HeadScores(512), 'bboxes': od.models.HeadExpBboxes(512), 'classes': od.models.HeadClasses(512, NCLASSES)}]
 model = od.models.Model(backbone, heads)
 model = model.to(device)
 print(summary(model, (10, 3, 256, 256)))
@@ -65,13 +65,13 @@ print(summary(model, (10, 3, 256, 256)))
 opt = torch.optim.Adam(model.parameters())
 
 weight_loss_fns = {
-    'hasobjs': lambda data: 1,
-    'bboxes': lambda data: data['hasobjs'],
-    'classes': lambda data: data['hasobjs'],
+    'scores': lambda data: 1,
+    'bboxes': lambda data: data['scores'],
+    'classes': lambda data: data['scores'],
 }
 loss_fns = {
     # we could use sigmoid_focal_loss like RetinaNet
-    'hasobjs': nn.BCEWithLogitsLoss(reduction='none'),
+    'scores': nn.BCEWithLogitsLoss(reduction='none'),
     'bboxes': nn.MSELoss(reduction='none'),
     'classes': nn.CrossEntropyLoss(reduction='none'),
 }
@@ -85,11 +85,11 @@ inputs, outputs = od.loop.eval(ts, model)
 
 for i in range(3*4):
     inv_outputs = inv_transforms(outputs[i])
-    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['hasobjs'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
+    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['scores'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
 
     plt.subplot(3, 4, i+1)
     od.plot.image(inputs[i]['image'])
-    od.plot.grid_bools(inputs[i]['image'], outputs[i]['hasobjs'][0])
+    od.plot.grid_bools(inputs[i]['image'], outputs[i]['scores'][0])
     od.plot.grid_lines(inputs[i]['image'], 8, 8)
     od.plot.bboxes(inputs[i]['image'], inv_bboxes)
     od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)

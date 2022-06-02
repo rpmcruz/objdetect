@@ -5,7 +5,7 @@ Useful plotting methods.
 import matplotlib.pyplot as plt
 from matplotlib import lines, patches, colors
 import numpy as np
-from skimage.transform import resize
+from torchvision.transforms.functional import resize, InterpolationMode
 
 def grid_lines(image, h, w):
     '''Draws grid lines.'''
@@ -14,9 +14,10 @@ def grid_lines(image, h, w):
     plt.hlines(np.linspace(0, H, h+1), 0, W, color='gray', linewidth=0.5)
 
 def grid_bools(image, grid):
-    '''Draws a grid boolean matrix, such as the hasobjs grid.'''
+    '''Draws a grid boolean matrix, such as the scores grid.'''
+    assert len(grid.shape) == 2
     _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap(['green']))
+    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), InterpolationMode.NEAREST), cmap=colors.ListedColormap(['green']))
 
 def grid_text(image, grid):
     '''Draws a grid matrix of values, such as the classes grid.'''

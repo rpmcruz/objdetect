@@ -30,8 +30,8 @@ grid_transforms = [od.grid.Transform(
     grid_size,
     od.grid.AnchorFilter(anchor, 0.5),
     od.grid.SliceOnlyCenterBbox(),
-    {f'hasobjs{i}': od.grid.NewHasObj(), f'bboxes{i}': od.grid.NewBboxes(), f'classes{i}': od.grid.NewClasses()},
-    {f'hasobjs{i}': od.grid.SetHasObj(), f'bboxes{i}': od.grid.SetOffsetSizeBboxesAnchor(anchor), f'classes{i}': od.grid.SetClasses()},
+    {f'scores{i}': od.grid.NewScore(), f'bboxes{i}': od.grid.NewBboxes(), f'classes{i}': od.grid.NewClasses()},
+    {f'scores{i}': od.grid.SetScore(), f'bboxes{i}': od.grid.SetOffsetSizeBboxesAnchor(anchor), f'classes{i}': od.grid.SetClasses()},
 ) for i, (anchor, grid_size) in enumerate(zip(anchors, GRID_SIZES))]
 
 dict_transform = od.aug.Compose([
@@ -50,9 +50,9 @@ val_dict_transform = od.aug.Compose([
 ])
 
 inv_transforms = od.inv_grid.MultiLevelInvTransform(
-    [lambda datum, i=i: datum[f'hasobjs{i}'][0] >= 0.5 for i in range(NANCHORS)],
-    {'hasobjs': [f'hasobjs{i}' for i in range(NANCHORS)], 'bboxes': [f'bboxes{i}' for i in range(NANCHORS)], 'classes': [f'classes{i}' for i in range(NANCHORS)]},
-    {'hasobjs': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvOffsetSizeBboxesAnchor(anchors), 'classes': od.inv_grid.InvClasses()}
+    [lambda datum, i=i: datum[f'scores{i}'][0] >= 0.5 for i in range(NANCHORS)],
+    {'scores': [f'scores{i}' for i in range(NANCHORS)], 'bboxes': [f'bboxes{i}' for i in range(NANCHORS)], 'classes': [f'classes{i}' for i in range(NANCHORS)]},
+    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvOffsetSizeBboxesAnchor(anchors), 'classes': od.inv_grid.InvClasses()}
 )
 
 ######################## DATA ########################
@@ -66,7 +66,7 @@ ts = torch.utils.data.DataLoader(ts, 32, num_workers=6, pin_memory=True)
 ######################## MODEL ########################
 
 backbone = od.models.SimpleBackbone([32, 64, 128, 256, 512], True)
-heads = [{}]*4 + [od.grid.merge_dicts([{f'hasobjs{i}': od.models.HeadHasObjs(512), f'bboxes{i}': od.models.HeadExpBboxes(512), f'classes{i}': od.models.HeadClasses(512, NCLASSES)} for i in range(NANCHORS)])]
+heads = [{}]*4 + [od.grid.merge_dicts([{f'scores{i}': od.models.HeadScores(512), f'bboxes{i}': od.models.HeadExpBboxes(512), f'classes{i}': od.models.HeadClasses(512, NCLASSES)} for i in range(NANCHORS)])]
 model = od.models.Model(backbone, heads)
 model = model.to(device)
 print(summary(model, (10, 3, 256, 256)))
@@ -76,13 +76,13 @@ print(summary(model, (10, 3, 256, 256)))
 opt = torch.optim.Adam(model.parameters())
 
 weight_loss_fns = od.grid.merge_dicts([{
-    f'hasobjs{i}': lambda data: 1,
-    f'bboxes{i}': lambda data, i=i: data[f'hasobjs{i}'],
-    f'classes{i}': lambda data, i=i: data[f'hasobjs{i}'],
+    f'scores{i}': lambda data: 1,
+    f'bboxes{i}': lambda data, i=i: data[f'scores{i}'],
+    f'classes{i}': lambda data, i=i: data[f'scores{i}'],
 } for i in range(NANCHORS)])
 loss_fns = od.grid.merge_dicts([{
     # we could use sigmoid_focal_loss like RetinaNet
-    f'hasobjs{i}': nn.BCEWithLogitsLoss(reduction='none'),
+    f'scores{i}': nn.BCEWithLogitsLoss(reduction='none'),
     f'bboxes{i}': nn.MSELoss(reduction='none'),
     f'classes{i}': nn.CrossEntropyLoss(reduction='none'),
 } for i in range(NANCHORS)])
@@ -96,11 +96,11 @@ inputs, outputs = od.loop.eval(ts, model)
 
 for i in range(3*4):
     inv_outputs = inv_transforms(outputs[i])
-    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['hasobjs'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
+    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['scores'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
 
     plt.subplot(3, 4, i+1)
     od.plot.image(inputs[i]['image'])
-    od.plot.grid_bool(inputs[i]['image'], outputs[i]['hasobjs'][0])
+    od.plot.grid_bool(inputs[i]['image'], outputs[i]['scores'][0])
     od.plot.grid_lines(inputs[i]['image'], 8, 8)
     od.plot.bboxes(inputs[i]['image'], inv_bboxes)
     od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)

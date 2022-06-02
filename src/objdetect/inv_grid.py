@@ -5,13 +5,13 @@ Methods to convert our grid transformations back to the list format, used by the
 import torch
 
 def InvScores():
-    '''Inverts hasobjs grid to a list of scores.'''
+    '''Inverts scores grid to a list of scores.'''
     def f(ix, key, datum):
         return datum[key][0, ix]
     return f
 
 def InvScoresWithClasses(classes_key):
-    '''Inverts hasobjs grid, multiplies by the class probability, in order to produce a posterior probability.'''
+    '''Inverts scores grid, multiplies by the class probability, in order to produce a posterior probability.'''
     def f(ix, key, datum):
         return datum[key][0, ix] * datum[classes_key].max(0)[ix]
     return f
