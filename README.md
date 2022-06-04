@@ -106,7 +106,7 @@ plt.show()
 
 ![Grids output](imgs/grids.png)
 
-(The reason why we sum `classes` and `scores` is to distinguish between no-class (0) and class=0.)
+(The reason why we sum `classes` and `scores` is to shift classes to start at 1 in order to distinguish between no-class (0) and class=0 which is now 1.)
 
 Please notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`slice_fn=od.grid.SliceOnlyCenterBbox()`), and the bounding box would specify the center offset and size (`'bboxes': od.grid.SetCenterSizeBboxesOnce()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations it touches, and the bounding box would be set relative (as in the previous code).
 
