@@ -22,7 +22,7 @@ def ConvertRel2Abs(loss_fn):
         return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
     return f
 
-def ValidBboxes(bboxes):
+def valid_bboxes(bboxes):
     '''Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2<x1 or y2<y1.'''
     return torch.stack((
         torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
@@ -36,8 +36,8 @@ def IoU(do_validation, smooth=1):
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
-            bboxes1 = ValidBboxes(bboxes1)
-            bboxes2 = ValidBboxes(bboxes2)
+            bboxes1 = valid_bboxes(bboxes1)
+            bboxes2 = valid_bboxes(bboxes2)
         # area of each
         A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
         A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])

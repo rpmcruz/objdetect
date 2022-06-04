@@ -51,7 +51,7 @@ def ConvertRel2Abs(loss_fn):
         return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
     return f
 
-def ValidBboxes(bboxes):
+def valid_bboxes(bboxes):
     &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
     return torch.stack((
         torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
@@ -65,8 +65,8 @@ def IoU(do_validation, smooth=1):
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
-            bboxes1 = ValidBboxes(bboxes1)
-            bboxes2 = ValidBboxes(bboxes2)
+            bboxes1 = valid_bboxes(bboxes1)
+            bboxes2 = valid_bboxes(bboxes2)
         # area of each
         A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
         A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])
@@ -181,8 +181,8 @@ def GIoU(do_validation, smooth=1):
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
-            bboxes1 = ValidBboxes(bboxes1)
-            bboxes2 = ValidBboxes(bboxes2)
+            bboxes1 = valid_bboxes(bboxes1)
+            bboxes2 = valid_bboxes(bboxes2)
         # area of each
         A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
         A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])
@@ -196,25 +196,6 @@ def GIoU(do_validation, smooth=1):
         IoU = (I+smooth) / (U+smooth)
         return 1-IoU
     return f</code></pre>
-</details>
-</dd>
-<dt id="losses.ValidBboxes"><code class="name flex">
-<span>def <span class="ident">ValidBboxes</span></span>(<span>bboxes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def ValidBboxes(bboxes):
-    &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
-    return torch.stack((
-        torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
-        torch.clamp(torch.minimum(bboxes[:, 1], bboxes[:, 3]), min=0),
-        torch.clamp(torch.maximum(bboxes[:, 0], bboxes[:, 2]), max=1),
-        torch.clamp(torch.maximum(bboxes[:, 1], bboxes[:, 3]), max=1),
-    ), 1)</code></pre>
 </details>
 </dd>
 <dt id="losses.convert_rel2abs"><code class="name flex">
@@ -239,6 +220,25 @@ def GIoU(do_validation, smooth=1):
     return bboxes_offset</code></pre>
 </details>
 </dd>
+<dt id="losses.valid_bboxes"><code class="name flex">
+<span>def <span class="ident">valid_bboxes</span></span>(<span>bboxes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def valid_bboxes(bboxes):
+    &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
+    return torch.stack((
+        torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
+        torch.clamp(torch.minimum(bboxes[:, 1], bboxes[:, 3]), min=0),
+        torch.clamp(torch.maximum(bboxes[:, 0], bboxes[:, 2]), max=1),
+        torch.clamp(torch.maximum(bboxes[:, 1], bboxes[:, 3]), max=1),
+    ), 1)</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -255,8 +255,8 @@ def GIoU(do_validation, smooth=1):
 <li><code><a title="losses.ConvertRel2Abs" href="#losses.ConvertRel2Abs">ConvertRel2Abs</a></code></li>
 <li><code><a title="losses.GIoU" href="#losses.GIoU">GIoU</a></code></li>
 <li><code><a title="losses.IoU" href="#losses.IoU">IoU</a></code></li>
-<li><code><a title="losses.ValidBboxes" href="#losses.ValidBboxes">ValidBboxes</a></code></li>
 <li><code><a title="losses.convert_rel2abs" href="#losses.convert_rel2abs">convert_rel2abs</a></code></li>
+<li><code><a title="losses.valid_bboxes" href="#losses.valid_bboxes">valid_bboxes</a></code></li>
 </ul>
 </li>
 </ul>

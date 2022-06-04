@@ -96,17 +96,17 @@ od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100, od.loop.StopPatien
 # We are going to validate using the training data
 inputs, outputs = od.loop.eval(ts, model)
 
+inv_inputs = inv_transforms(inputs)
+inv_outputs = od.post.NMS(inv_transforms(outputs), lambda_nms=0.5)
+
 LAMBDA_NMS = 0.5
 for i in range(4):
-    inv_outputs = inv_transforms(outputs[i])
-    inv_bboxes, inv_classes = od.post.NMS(inv_outputs['scores'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=LAMBDA_NMS)
-
     for j in range(2):
         plt.subplot(2, 4, j*4+i+1)
         od.plot.image(inputs[i]['image'])
         od.plot.grid_bools(inputs[i]['image'], outputs[i][f'scores{j}'][0])
         od.plot.grid_lines(inputs[i]['image'], *GRID_SIZES[j])
-        od.plot.bboxes(inputs[i]['image'], inv_bboxes)
-        od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)
+        od.plot.bboxes(inputs[i]['image'], inv_outputs[i]['bboxes'])
+        od.plot.classes(inputs[i]['image'], inv_outputs[i]['bboxes'], inv_outputs[i]['classes'], od.data.VOCDetection.labels)
 plt.tight_layout()
 plt.savefig('fcos.png')

@@ -78,18 +78,19 @@ def InvClasses():
 
 def InvTransform(threshold_fn, inv_grid_dict):
     '''Applies the others methods to convert the grids into lists.'''
-    def f(datum):
-        ix = threshold_fn(datum)
-        return {name: f(ix, name, datum) for name, f in inv_grid_dict.items()}
+    def f(data):
+        return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
     return f
 
 def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
     '''Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.'''
-    def f(datum):
-        ret = {}
-        for i in range(len(threshold_fns)):
-            ix = threshold_fns[i](datum)
-            for name, f in inv_grid_dict.items():
-                ret[name] = ret.get(name, []) + list(f(ix, dependencies[name][i], datum))
+    def f(data):
+        ret = [None] * len(data)
+        for di, datum in enumerate(data):
+            ret[di] = ret_dict = {}
+            for i, th in enumerate(threshold_fns):
+                ix = th(datum)
+                for name, f in inv_grid_dict.items():
+                    ret_dict[name] = ret_dict.get(name, []) + list(f(ix, dependencies[name][i], datum))
         return ret
     return f

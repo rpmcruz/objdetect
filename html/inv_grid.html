@@ -34,13 +34,13 @@ Methods to convert our grid transformations back to the list format, used by the
 import torch
 
 def InvScores():
-    &#39;&#39;&#39;Inverts hasobjs grid to a list of scores.&#39;&#39;&#39;
+    &#39;&#39;&#39;Inverts scores grid to a list of scores.&#39;&#39;&#39;
     def f(ix, key, datum):
         return datum[key][0, ix]
     return f
 
 def InvScoresWithClasses(classes_key):
-    &#39;&#39;&#39;Inverts hasobjs grid, multiplies by the class probability, in order to produce a posterior probability.&#39;&#39;&#39;
+    &#39;&#39;&#39;Inverts scores grid, multiplies by the class probability, in order to produce a posterior probability.&#39;&#39;&#39;
     def f(ix, key, datum):
         return datum[key][0, ix] * datum[classes_key].max(0)[ix]
     return f
@@ -107,19 +107,20 @@ def InvClasses():
 
 def InvTransform(threshold_fn, inv_grid_dict):
     &#39;&#39;&#39;Applies the others methods to convert the grids into lists.&#39;&#39;&#39;
-    def f(datum):
-        ix = threshold_fn(datum)
-        return {name: f(ix, name, datum) for name, f in inv_grid_dict.items()}
+    def f(data):
+        return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
     return f
 
 def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
     &#39;&#39;&#39;Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.&#39;&#39;&#39;
-    def f(datum):
-        ret = {}
-        for i in range(len(threshold_fns)):
-            ix = threshold_fns[i](datum)
-            for name, f in inv_grid_dict.items():
-                ret[name] = ret.get(name, []) + list(f(ix, dependencies[name][i], datum))
+    def f(data):
+        ret = [None] * len(data)
+        for di, datum in enumerate(data):
+            ret[di] = ret_dict = {}
+            for i, th in enumerate(threshold_fns):
+                ix = th(datum)
+                for name, f in inv_grid_dict.items():
+                    ret_dict[name] = ret_dict.get(name, []) + list(f(ix, dependencies[name][i], datum))
         return ret
     return f</code></pre>
 </details>
@@ -235,13 +236,13 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <span>def <span class="ident">InvScores</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inverts hasobjs grid to a list of scores.</p></div>
+<div class="desc"><p>Inverts scores grid to a list of scores.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def InvScores():
-    &#39;&#39;&#39;Inverts hasobjs grid to a list of scores.&#39;&#39;&#39;
+    &#39;&#39;&#39;Inverts scores grid to a list of scores.&#39;&#39;&#39;
     def f(ix, key, datum):
         return datum[key][0, ix]
     return f</code></pre>
@@ -251,13 +252,13 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <span>def <span class="ident">InvScoresWithClasses</span></span>(<span>classes_key)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inverts hasobjs grid, multiplies by the class probability, in order to produce a posterior probability.</p></div>
+<div class="desc"><p>Inverts scores grid, multiplies by the class probability, in order to produce a posterior probability.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def InvScoresWithClasses(classes_key):
-    &#39;&#39;&#39;Inverts hasobjs grid, multiplies by the class probability, in order to produce a posterior probability.&#39;&#39;&#39;
+    &#39;&#39;&#39;Inverts scores grid, multiplies by the class probability, in order to produce a posterior probability.&#39;&#39;&#39;
     def f(ix, key, datum):
         return datum[key][0, ix] * datum[classes_key].max(0)[ix]
     return f</code></pre>
@@ -274,9 +275,8 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 </summary>
 <pre><code class="python">def InvTransform(threshold_fn, inv_grid_dict):
     &#39;&#39;&#39;Applies the others methods to convert the grids into lists.&#39;&#39;&#39;
-    def f(datum):
-        ix = threshold_fn(datum)
-        return {name: f(ix, name, datum) for name, f in inv_grid_dict.items()}
+    def f(data):
+        return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
     return f</code></pre>
 </details>
 </dd>
@@ -291,12 +291,14 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 </summary>
 <pre><code class="python">def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
     &#39;&#39;&#39;Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.&#39;&#39;&#39;
-    def f(datum):
-        ret = {}
-        for i in range(len(threshold_fns)):
-            ix = threshold_fns[i](datum)
-            for name, f in inv_grid_dict.items():
-                ret[name] = ret.get(name, []) + list(f(ix, dependencies[name][i], datum))
+    def f(data):
+        ret = [None] * len(data)
+        for di, datum in enumerate(data):
+            ret[di] = ret_dict = {}
+            for i, th in enumerate(threshold_fns):
+                ix = th(datum)
+                for name, f in inv_grid_dict.items():
+                    ret_dict[name] = ret_dict.get(name, []) + list(f(ix, dependencies[name][i], datum))
         return ret
     return f</code></pre>
 </details>

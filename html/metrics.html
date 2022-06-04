@@ -31,71 +31,84 @@
 Implementation of Precision-Recall and AP metrics.
 &#39;&#39;&#39;
 
-import numpy as np
+import torch
 
-def IoU(bbox1, bbox2):
-    &#39;&#39;&#39;Intersection over union between two bounding boxes.&#39;&#39;&#39;
-    x0 = max(bbox1[0], bbox2[0])
-    x1 = min(bbox1[2], bbox2[2])
-    y0 = max(bbox1[1], bbox2[1])
-    y1 = min(bbox1[3], bbox2[3])
-    A1 = (bbox1[2]-bbox1[0]) * (bbox1[3]-bbox1[1])
-    A2 = (bbox2[2]-bbox2[0]) * (bbox2[3]-bbox2[1])
-    I = (x1-x0) * (y1-y0)
+def IoUs(true_bbox, pred_bboxes):
+    &#39;&#39;&#39;Intersection over union between one bounding box against a list of others.&#39;&#39;&#39;
+    x0 = torch.maximum(true_bbox[0], pred_bboxes[:, 0])
+    y0 = torch.maximum(true_bbox[1], pred_bboxes[:, 1])
+    x1 = torch.minimum(true_bbox[2], pred_bboxes[:, 2])
+    y1 = torch.minimum(true_bbox[3], pred_bboxes[:, 3])
+    A1 = (true_bbox[2]-true_bbox[0]) * (true_bbox[3]-true_bbox[1])
+    A2 = (pred_bboxes[:, 2]-pred_bboxes[:, 0]) * (pred_bboxes[:, 3]-pred_bboxes[:, 1])
+    I = torch.clamp(x1-x0, min=0) * torch.clamp(y1-y0, min=0)
     U = A1 + A2 - I
     return I / U
 
-def which_correct(BB_true, BB_pred, iou_threshold):
-    &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold).&#39;&#39;&#39;
-    correct = []
-    for bb_true, bb_pred in zip(BB_true, BB_pred):
-        c = [False] * len(bb_pred)
-        for b_true in bb_true:
-            for i, b_pred in enumerate(bb_pred):
-                # if this bbox was hit, skip it
-                if c[i]: break
-                iou = IoU(b_true, b_pred)
-                c[i] = iou &gt;= iou_threshold
-        correct += c
-    return correct
+def which_correct(preds, true, iou_threshold):
+    &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.&#39;&#39;&#39;
+    return [
+        [torch.any(IoUs(b_true, ps[&#39;bboxes&#39;]) &gt;= iou_threshold)
+            for b_true in ts[&#39;bboxes&#39;]]
+        for ps, ts in zip(preds, true)
+    ]
 
-def precision_recall_curve(CC_pred, BB_true, BB_pred, iou_threshold):
-    &#39;&#39;&#39;Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes.&#39;&#39;&#39;
+def precision_recall_curve(preds, true, iou_threshold):
+    &#39;&#39;&#39;Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes. `preds` and `true` are lists of dictionaries containing at least: scores and bboxes. A good explanation of this metric: https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173.&#39;&#39;&#39;
+    # match bounding by whether they are correct
+    correct = which_correct(preds, true, iou_threshold)
     # flatten
-    CC_pred = [c for cc in CC_pred for c in cc]
+    scores = torch.tensor([s for p in preds for s in p[&#39;scores&#39;]])
+    correct = torch.tensor([c for cs in correct for c in cs])
     # order &#39;correct&#39; based on confidence probability
-    correct = which_correct(BB_true, BB_pred, iou_threshold)
-    ix = np.argsort(CC_pred)[::-1]
-    correct = [correct[i] for i in ix]
+    ix = torch.argsort(scores, descending=True)
+    correct = correct[ix]
     # compute curve
-    true_bboxes = sum(len(bb_pred) for bb_pred in BB_pred)
-    precision = np.cumsum(correct) / np.arange(1, len(correct)+1)
-    recall = np.cumsum(correct) / true_bboxes
+    npredictions = sum(len(p[&#39;bboxes&#39;]) for p in preds)
+    cum_correct = torch.cumsum(correct, 0)
+    precision = cum_correct / torch.arange(1, len(correct)+1)
+    recall = cum_correct / npredictions
     # smooth zigzag
     for i in range(len(precision)-1, 0, -1):
         if precision[i-1] &lt; precision[i]:
             precision[i-1] = precision[i]
     return precision, recall
 
-def AP(CC_pred, BB, BB_pred, iou_threshold):
+def AP(preds, true, iou_threshold):
     &#39;&#39;&#39;Produces an AP-score based on the precision-recall curve.&#39;&#39;&#39;
-    precision, recall = precision_recall_curve(CC_pred, BB, BB_pred, iou_threshold)
-    return np.sum(np.diff(recall) * precision[1:])
+    precision, recall = precision_recall_curve(preds, true, iou_threshold)
+    return torch.sum(torch.diff(recall) * precision[1:])
 
-def filter_class(k, YY, CC_pred, BB, BB_pred):
+def filter_class(klass, preds, true):
     &#39;&#39;&#39;Utility to filter a given class.&#39;&#39;&#39;
-    return ([cc[yy == k] for yy, cc in zip(YY, CC_pred)],
-        [bb[yy == k] for yy, bb in zip(YY, BB)],
-        [bb[yy == k] for yy, bb in zip(YY, BB_pred)])
+    preds = [{k: v[p[&#39;classes&#39;] == klass] for k, v in p.items()} for p in preds]
+    true = [{k: v[t[&#39;classes&#39;] == klass] for k, v in t.items()} for t in true]
+    return preds, true
 
-def mAP(YY, CC_pred, BB, BB_pred, iou_threshold):
+def mAP(preds, true, iou_threshold):
     &#39;&#39;&#39;mAP = average AP for all classes.&#39;&#39;&#39;
-    classes = np.unique(YY)
-    return np.mean([AP(*filter_class(k, YY, CC_pred, BB, BB_pred), iou_threshold) for k in classes])
+    assert &#39;classes&#39; in preds[0] and &#39;classes&#39; in true[0]
+    nclasses = 1+max([max(t[&#39;classes&#39;]) for t in true])
+    return sum(AP(*filter_class(klass, preds, true), iou_threshold) for klass in range(nclasses)) / nclasses
 
-def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
+def mAP_ious(preds, true, iou_thresholds):
     &#39;&#39;&#39;mAP = average AP for all classes and for a list of IoU thresholds.&#39;&#39;&#39;
-    return np.mean(mAP(YY, CC_pred, BB, BB_pred, th) for th in iou_thresholds)</code></pre>
+    return torch.mean([mAP(preds, true, th) for th in iou_thresholds])
+
+if __name__ == &#39;__main__&#39;:  # DEBUG
+    true_bbox = torch.tensor([0.4, 0, 0.6, 1])
+    pred_bboxes = torch.tensor([
+        [0.0, 0, 0.3, 1],  # no intersection
+        [0.5, 0, 0.6, 1],  # half intersection
+        [0.4, 0, 0.6, 1],  # full intersection
+    ])
+    print(&#39;IoUs:&#39;, IoUs(pred_bboxes, true_bbox))
+    true = [{&#39;bboxes&#39;: true_bbox[None]}]
+    preds = [{&#39;bboxes&#39;: pred_bboxes, &#39;scores&#39;: [0.5, 0.4, 0.8]}]
+    for th in [0, 0.5, 1]:
+        print(f&#39;which_correct {th}:&#39;, which_correct(preds, true, th))
+    for th in [0, 0.5, 1]:
+        print(f&#39;precision_recall_curve {th}:&#39;, precision_recall_curve(preds, true, th))</code></pre>
 </details>
 </section>
 <section>
@@ -106,7 +119,7 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="metrics.AP"><code class="name flex">
-<span>def <span class="ident">AP</span></span>(<span>CC_pred, BB, BB_pred, iou_threshold)</span>
+<span>def <span class="ident">AP</span></span>(<span>preds, true, iou_threshold)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Produces an AP-score based on the precision-recall curve.</p></div>
@@ -114,36 +127,36 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def AP(CC_pred, BB, BB_pred, iou_threshold):
+<pre><code class="python">def AP(preds, true, iou_threshold):
     &#39;&#39;&#39;Produces an AP-score based on the precision-recall curve.&#39;&#39;&#39;
-    precision, recall = precision_recall_curve(CC_pred, BB, BB_pred, iou_threshold)
-    return np.sum(np.diff(recall) * precision[1:])</code></pre>
+    precision, recall = precision_recall_curve(preds, true, iou_threshold)
+    return torch.sum(torch.diff(recall) * precision[1:])</code></pre>
 </details>
 </dd>
-<dt id="metrics.IoU"><code class="name flex">
-<span>def <span class="ident">IoU</span></span>(<span>bbox1, bbox2)</span>
+<dt id="metrics.IoUs"><code class="name flex">
+<span>def <span class="ident">IoUs</span></span>(<span>true_bbox, pred_bboxes)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Intersection over union between two bounding boxes.</p></div>
+<div class="desc"><p>Intersection over union between one bounding box against a list of others.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def IoU(bbox1, bbox2):
-    &#39;&#39;&#39;Intersection over union between two bounding boxes.&#39;&#39;&#39;
-    x0 = max(bbox1[0], bbox2[0])
-    x1 = min(bbox1[2], bbox2[2])
-    y0 = max(bbox1[1], bbox2[1])
-    y1 = min(bbox1[3], bbox2[3])
-    A1 = (bbox1[2]-bbox1[0]) * (bbox1[3]-bbox1[1])
-    A2 = (bbox2[2]-bbox2[0]) * (bbox2[3]-bbox2[1])
-    I = (x1-x0) * (y1-y0)
+<pre><code class="python">def IoUs(true_bbox, pred_bboxes):
+    &#39;&#39;&#39;Intersection over union between one bounding box against a list of others.&#39;&#39;&#39;
+    x0 = torch.maximum(true_bbox[0], pred_bboxes[:, 0])
+    y0 = torch.maximum(true_bbox[1], pred_bboxes[:, 1])
+    x1 = torch.minimum(true_bbox[2], pred_bboxes[:, 2])
+    y1 = torch.minimum(true_bbox[3], pred_bboxes[:, 3])
+    A1 = (true_bbox[2]-true_bbox[0]) * (true_bbox[3]-true_bbox[1])
+    A2 = (pred_bboxes[:, 2]-pred_bboxes[:, 0]) * (pred_bboxes[:, 3]-pred_bboxes[:, 1])
+    I = torch.clamp(x1-x0, min=0) * torch.clamp(y1-y0, min=0)
     U = A1 + A2 - I
     return I / U</code></pre>
 </details>
 </dd>
 <dt id="metrics.filter_class"><code class="name flex">
-<span>def <span class="ident">filter_class</span></span>(<span>k, YY, CC_pred, BB, BB_pred)</span>
+<span>def <span class="ident">filter_class</span></span>(<span>klass, preds, true)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Utility to filter a given class.</p></div>
@@ -151,15 +164,15 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def filter_class(k, YY, CC_pred, BB, BB_pred):
+<pre><code class="python">def filter_class(klass, preds, true):
     &#39;&#39;&#39;Utility to filter a given class.&#39;&#39;&#39;
-    return ([cc[yy == k] for yy, cc in zip(YY, CC_pred)],
-        [bb[yy == k] for yy, bb in zip(YY, BB)],
-        [bb[yy == k] for yy, bb in zip(YY, BB_pred)])</code></pre>
+    preds = [{k: v[p[&#39;classes&#39;] == klass] for k, v in p.items()} for p in preds]
+    true = [{k: v[t[&#39;classes&#39;] == klass] for k, v in t.items()} for t in true]
+    return preds, true</code></pre>
 </details>
 </dd>
 <dt id="metrics.mAP"><code class="name flex">
-<span>def <span class="ident">mAP</span></span>(<span>YY, CC_pred, BB, BB_pred, iou_threshold)</span>
+<span>def <span class="ident">mAP</span></span>(<span>preds, true, iou_threshold)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>mAP = average AP for all classes.</p></div>
@@ -167,14 +180,15 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mAP(YY, CC_pred, BB, BB_pred, iou_threshold):
+<pre><code class="python">def mAP(preds, true, iou_threshold):
     &#39;&#39;&#39;mAP = average AP for all classes.&#39;&#39;&#39;
-    classes = np.unique(YY)
-    return np.mean([AP(*filter_class(k, YY, CC_pred, BB, BB_pred), iou_threshold) for k in classes])</code></pre>
+    assert &#39;classes&#39; in preds[0] and &#39;classes&#39; in true[0]
+    nclasses = 1+max([max(t[&#39;classes&#39;]) for t in true])
+    return sum(AP(*filter_class(klass, preds, true), iou_threshold) for klass in range(nclasses)) / nclasses</code></pre>
 </details>
 </dd>
 <dt id="metrics.mAP_ious"><code class="name flex">
-<span>def <span class="ident">mAP_ious</span></span>(<span>YY, CC_pred, BB, BB_pred, iou_thresholds)</span>
+<span>def <span class="ident">mAP_ious</span></span>(<span>preds, true, iou_thresholds)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>mAP = average AP for all classes and for a list of IoU thresholds.</p></div>
@@ -182,32 +196,35 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
+<pre><code class="python">def mAP_ious(preds, true, iou_thresholds):
     &#39;&#39;&#39;mAP = average AP for all classes and for a list of IoU thresholds.&#39;&#39;&#39;
-    return np.mean(mAP(YY, CC_pred, BB, BB_pred, th) for th in iou_thresholds)</code></pre>
+    return torch.mean([mAP(preds, true, th) for th in iou_thresholds])</code></pre>
 </details>
 </dd>
 <dt id="metrics.precision_recall_curve"><code class="name flex">
-<span>def <span class="ident">precision_recall_curve</span></span>(<span>CC_pred, BB_true, BB_pred, iou_threshold)</span>
+<span>def <span class="ident">precision_recall_curve</span></span>(<span>preds, true, iou_threshold)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes.</p></div>
+<div class="desc"><p>Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes. <code>preds</code> and <code>true</code> are lists of dictionaries containing at least: scores and bboxes. A good explanation of this metric: <a href="https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173.">https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173.</a></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def precision_recall_curve(CC_pred, BB_true, BB_pred, iou_threshold):
-    &#39;&#39;&#39;Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes.&#39;&#39;&#39;
+<pre><code class="python">def precision_recall_curve(preds, true, iou_threshold):
+    &#39;&#39;&#39;Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes. `preds` and `true` are lists of dictionaries containing at least: scores and bboxes. A good explanation of this metric: https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173.&#39;&#39;&#39;
+    # match bounding by whether they are correct
+    correct = which_correct(preds, true, iou_threshold)
     # flatten
-    CC_pred = [c for cc in CC_pred for c in cc]
+    scores = torch.tensor([s for p in preds for s in p[&#39;scores&#39;]])
+    correct = torch.tensor([c for cs in correct for c in cs])
     # order &#39;correct&#39; based on confidence probability
-    correct = which_correct(BB_true, BB_pred, iou_threshold)
-    ix = np.argsort(CC_pred)[::-1]
-    correct = [correct[i] for i in ix]
+    ix = torch.argsort(scores, descending=True)
+    correct = correct[ix]
     # compute curve
-    true_bboxes = sum(len(bb_pred) for bb_pred in BB_pred)
-    precision = np.cumsum(correct) / np.arange(1, len(correct)+1)
-    recall = np.cumsum(correct) / true_bboxes
+    npredictions = sum(len(p[&#39;bboxes&#39;]) for p in preds)
+    cum_correct = torch.cumsum(correct, 0)
+    precision = cum_correct / torch.arange(1, len(correct)+1)
+    recall = cum_correct / npredictions
     # smooth zigzag
     for i in range(len(precision)-1, 0, -1):
         if precision[i-1] &lt; precision[i]:
@@ -216,27 +233,21 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 </details>
 </dd>
 <dt id="metrics.which_correct"><code class="name flex">
-<span>def <span class="ident">which_correct</span></span>(<span>BB_true, BB_pred, iou_threshold)</span>
+<span>def <span class="ident">which_correct</span></span>(<span>preds, true, iou_threshold)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold).</p></div>
+<div class="desc"><p>For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def which_correct(BB_true, BB_pred, iou_threshold):
-    &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold).&#39;&#39;&#39;
-    correct = []
-    for bb_true, bb_pred in zip(BB_true, BB_pred):
-        c = [False] * len(bb_pred)
-        for b_true in bb_true:
-            for i, b_pred in enumerate(bb_pred):
-                # if this bbox was hit, skip it
-                if c[i]: break
-                iou = IoU(b_true, b_pred)
-                c[i] = iou &gt;= iou_threshold
-        correct += c
-    return correct</code></pre>
+<pre><code class="python">def which_correct(preds, true, iou_threshold):
+    &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.&#39;&#39;&#39;
+    return [
+        [torch.any(IoUs(b_true, ps[&#39;bboxes&#39;]) &gt;= iou_threshold)
+            for b_true in ts[&#39;bboxes&#39;]]
+        for ps, ts in zip(preds, true)
+    ]</code></pre>
 </details>
 </dd>
 </dl>
@@ -253,7 +264,7 @@ def mAP_ious(YY, CC_pred, BB, BB_pred, iou_thresholds):
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="metrics.AP" href="#metrics.AP">AP</a></code></li>
-<li><code><a title="metrics.IoU" href="#metrics.IoU">IoU</a></code></li>
+<li><code><a title="metrics.IoUs" href="#metrics.IoUs">IoUs</a></code></li>
 <li><code><a title="metrics.filter_class" href="#metrics.filter_class">filter_class</a></code></li>
 <li><code><a title="metrics.mAP" href="#metrics.mAP">mAP</a></code></li>
 <li><code><a title="metrics.mAP_ious" href="#metrics.mAP_ious">mAP_ious</a></code></li>

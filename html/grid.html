@@ -89,7 +89,7 @@ def AnchorFilter(anchor, min_iou):
 
 ###########################################################
 
-def NewHasObj():
+def NewScore():
     &#39;&#39;&#39;Grid 1xhxw.&#39;&#39;&#39;
     def f(h, w):
         return torch.zeros((1, h, w), dtype=torch.float32)
@@ -107,11 +107,11 @@ def NewClasses():
         return torch.zeros((h, w), dtype=torch.int64)
     return f
 
-NewCenterness = NewHasObj
+NewCenterness = NewScore
 
 ###########################################################
 
-def SetHasObj():
+def SetScore():
     &#39;&#39;&#39;Sets 1 wherever the object is, according to the given slicing.&#39;&#39;&#39;
     def f(grid, yy, xx, datum, i):
         grid[:, yy, xx] = 1
@@ -261,7 +261,7 @@ def merge_dicts(l):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def NewHasObj():
+<pre><code class="python">def NewScore():
     &#39;&#39;&#39;Grid 1xhxw.&#39;&#39;&#39;
     def f(h, w):
         return torch.zeros((1, h, w), dtype=torch.float32)
@@ -284,8 +284,8 @@ def merge_dicts(l):
     return f</code></pre>
 </details>
 </dd>
-<dt id="grid.NewHasObj"><code class="name flex">
-<span>def <span class="ident">NewHasObj</span></span>(<span>)</span>
+<dt id="grid.NewScore"><code class="name flex">
+<span>def <span class="ident">NewScore</span></span>(<span>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Grid 1xhxw.</p></div>
@@ -293,7 +293,7 @@ def merge_dicts(l):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def NewHasObj():
+<pre><code class="python">def NewScore():
     &#39;&#39;&#39;Grid 1xhxw.&#39;&#39;&#39;
     def f(h, w):
         return torch.zeros((1, h, w), dtype=torch.float32)
@@ -357,22 +357,6 @@ def merge_dicts(l):
     def f(grid, yy, xx, datum, i):
         klass = datum[&#39;classes&#39;][i]
         grid[yy, xx] = klass
-    return f</code></pre>
-</details>
-</dd>
-<dt id="grid.SetHasObj"><code class="name flex">
-<span>def <span class="ident">SetHasObj</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sets 1 wherever the object is, according to the given slicing.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def SetHasObj():
-    &#39;&#39;&#39;Sets 1 wherever the object is, according to the given slicing.&#39;&#39;&#39;
-    def f(grid, yy, xx, datum, i):
-        grid[:, yy, xx] = 1
     return f</code></pre>
 </details>
 </dd>
@@ -443,6 +427,22 @@ def merge_dicts(l):
         grid[1, yy, xx] = (_yy/h) - bbox[1]
         grid[2, yy, xx] = bbox[2] - (_xx/w)
         grid[3, yy, xx] = bbox[3] - (_yy/h)
+    return f</code></pre>
+</details>
+</dd>
+<dt id="grid.SetScore"><code class="name flex">
+<span>def <span class="ident">SetScore</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets 1 wherever the object is, according to the given slicing.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SetScore():
+    &#39;&#39;&#39;Sets 1 wherever the object is, according to the given slicing.&#39;&#39;&#39;
+    def f(grid, yy, xx, datum, i):
+        grid[:, yy, xx] = 1
     return f</code></pre>
 </details>
 </dd>
@@ -592,14 +592,14 @@ def merge_dicts(l):
 <li><code><a title="grid.NewBboxes" href="#grid.NewBboxes">NewBboxes</a></code></li>
 <li><code><a title="grid.NewCenterness" href="#grid.NewCenterness">NewCenterness</a></code></li>
 <li><code><a title="grid.NewClasses" href="#grid.NewClasses">NewClasses</a></code></li>
-<li><code><a title="grid.NewHasObj" href="#grid.NewHasObj">NewHasObj</a></code></li>
+<li><code><a title="grid.NewScore" href="#grid.NewScore">NewScore</a></code></li>
 <li><code><a title="grid.RemoveKeys" href="#grid.RemoveKeys">RemoveKeys</a></code></li>
 <li><code><a title="grid.SetCenterness" href="#grid.SetCenterness">SetCenterness</a></code></li>
 <li><code><a title="grid.SetClasses" href="#grid.SetClasses">SetClasses</a></code></li>
-<li><code><a title="grid.SetHasObj" href="#grid.SetHasObj">SetHasObj</a></code></li>
 <li><code><a title="grid.SetOffsetSizeBboxes" href="#grid.SetOffsetSizeBboxes">SetOffsetSizeBboxes</a></code></li>
 <li><code><a title="grid.SetOffsetSizeBboxesAnchor" href="#grid.SetOffsetSizeBboxesAnchor">SetOffsetSizeBboxesAnchor</a></code></li>
 <li><code><a title="grid.SetRelBboxes" href="#grid.SetRelBboxes">SetRelBboxes</a></code></li>
+<li><code><a title="grid.SetScore" href="#grid.SetScore">SetScore</a></code></li>
 <li><code><a title="grid.SizeFilter" href="#grid.SizeFilter">SizeFilter</a></code></li>
 <li><code><a title="grid.SliceAcrossBbox" href="#grid.SliceAcrossBbox">SliceAcrossBbox</a></code></li>
 <li><code><a title="grid.SliceAcrossCeilBbox" href="#grid.SliceAcrossCeilBbox">SliceAcrossCeilBbox</a></code></li>

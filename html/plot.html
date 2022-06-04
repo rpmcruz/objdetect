@@ -34,7 +34,7 @@ Useful plotting methods.
 import matplotlib.pyplot as plt
 from matplotlib import lines, patches, colors
 import numpy as np
-from skimage.transform import resize
+from torchvision.transforms.functional import resize, InterpolationMode
 
 def grid_lines(image, h, w):
     &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
@@ -43,9 +43,10 @@ def grid_lines(image, h, w):
     plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, linewidth=0.5)
 
 def grid_bools(image, grid):
-    &#39;&#39;&#39;Draws a grid boolean matrix, such as the hasobjs grid.&#39;&#39;&#39;
+    &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
+    assert len(grid.shape) == 2
     _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap([&#39;green&#39;]))
+    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))
 
 def grid_text(image, grid):
     &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
@@ -125,15 +126,16 @@ def show():
 <span>def <span class="ident">grid_bools</span></span>(<span>image, grid)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Draws a grid boolean matrix, such as the hasobjs grid.</p></div>
+<div class="desc"><p>Draws a grid boolean matrix, such as the scores grid.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def grid_bools(image, grid):
-    &#39;&#39;&#39;Draws a grid boolean matrix, such as the hasobjs grid.&#39;&#39;&#39;
+    &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
+    assert len(grid.shape) == 2
     _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid, (H, W), 0), cmap=colors.ListedColormap([&#39;green&#39;]))</code></pre>
+    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))</code></pre>
 </details>
 </dd>
 <dt id="plot.grid_lines"><code class="name flex">

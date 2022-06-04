@@ -185,10 +185,9 @@ We may now use metrics or visualize the results. You may want to apply non-maxim
 import numpy as np
 i = np.random.choice(len(outputs))
 plt.imshow(inputs[i]['image'])
-inv_outputs = inv_transforms(outputs[i])
-inv_bboxes, inv_classes = od.post.NMS(inv_outputs['scores'], inv_outputs['bboxes'], inv_outputs['classes'], lambda_nms=0.5)
-od.plot.bboxes(inputs[i]['image'], inv_bboxes)
-od.plot.classes(inputs[i]['image'], inv_bboxes, inv_classes, od.data.VOCDetection.labels)
+inv_outputs = od.post.NMS(inv_transforms([outputs[i]]))[0]
+od.plot.bboxes(inputs[i]['image'], inv_outputs[i]['bboxes'])
+od.plot.classes(inputs[i]['image'], inv_outputs[i]['bboxes'], inv_outputs[i]['classes'], od.data.VOCDetection.labels)
 plt.show()
 ```
 
@@ -199,9 +198,9 @@ The result is not very good because we are using a very crude backbone. Furtherm
 When using multiple grids, then the method `od.inv_grid.MultiLevelInvTransform()` should be used where dependencies are specified on what multiple grids should be used to produce the final grid (e.g., `dependencies={'bboxes': ['bboxes1', 'bboxes2', ...]}`.
 
 ```python
-inv_inputs = [inv_transforms(i) for i in inputs]
-inv_outputs = [inv_transforms(o) for o in outputs]
-precision, recall = od.metrics.precision_recall_curve([o['scores'] for o in inv_outputs], [i['bboxes'] for i in inv_inputs], [o['bboxes'] for o in inv_outputs], 0.5)
+inv_inputs = inv_transforms(inputs)
+inv_outputs = od.post.NMS(inv_transforms(outputs))
+precision, recall = od.metrics.precision_recall_curve(inv_outputs, inv_inputs, 0.5)
 plt.plot(precision, recall)
 plt.show()
 ```

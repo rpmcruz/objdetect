@@ -4,7 +4,6 @@ Convenience functions for the training and evaluation loops.
 
 import torch
 from time import time
-from tqdm import tqdm
 
 def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None):
     '''Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.'''
@@ -53,7 +52,7 @@ def eval(ts, model):
     inputs = []
     outputs = []
     model.eval()
-    for data in tqdm(ts):
+    for data in ts:
         X = data['image'].to(device)
         with torch.no_grad():
             preds = model(X)
