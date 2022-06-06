@@ -41,7 +41,8 @@ val_dict_transform = od.aug.Compose([
 
 inv_transforms = od.inv_grid.InvTransform(
     lambda datum: datum['scores'][0] >= 0.5,
-    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvOffsetSizeBboxes(), 'classes': od.inv_grid.InvClasses()}
+    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvOffsetSizeBboxes(), 'classes': od.inv_grid.InvClasses()},
+    True
 )
 
 ######################## DATA ########################
@@ -81,24 +82,20 @@ od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100)
 ######################## EVALUATE ########################
 
 # We are going to validate using the training data
-inputs, outputs = od.loop.eval(ts, model)
-
-inv_inputs = inv_transforms(inputs)
-inv_outputs = od.post.NMS(inv_transforms(outputs), lambda_nms=0.5)
+inputs, outputs = od.loop.eval(ts, model, inv_transforms)
+outputs = od.post.NMS(outputs, lambda_nms=0.5)
 
 for i in range(3*4):
     plt.subplot(3, 4, i+1)
     od.plot.image(inputs[i]['image'])
-    od.plot.grid_bools(inputs[i]['image'], outputs[i]['scores'][0])
-    od.plot.grid_lines(inputs[i]['image'], 8, 8)
-    od.plot.bboxes(inputs[i]['image'], inv_outputs[i]['bboxes'])
-    od.plot.classes(inputs[i]['image'], inv_outputs[i]['bboxes'], inv_outputs[i]['classes'], od.data.VOCDetection.labels)
+    od.plot.bboxes(inputs[i]['image'], outputs[i]['bboxes'])
+    od.plot.classes(inputs[i]['image'], outputs[i]['bboxes'], outputs[i]['classes'], od.data.VOCDetection.labels)
 plt.tight_layout()
 plt.savefig('simple.png')
 
-precision, recall = od.metrics.precision_recall_curve(inv_outputs, inv_inputs, 0.5)
+precision, recall = od.metrics.precision_recall_curve(outputs, inputs, 0.5)
 plt.plot(precision, recall)
 plt.show()
 
-print('AP:', od.metrics.AP(inv_outputs, inv_inputs, 0.5))
-print('mAP:', od.metrics.mAP(inv_outputs, inv_inputs, 0.5))
+print('AP:', od.metrics.AP(outputs, inputs, 0.5))
+print('mAP:', od.metrics.mAP(outputs, inputs, 0.5))

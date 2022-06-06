@@ -4,7 +4,19 @@ Implementation of Precision-Recall and AP metrics.
 
 import torch
 
-def IoUs(true_bbox, pred_bboxes):
+def IoU(bbox1, bbox2):
+    '''Intersection over union between two bounding boxes.'''
+    x0 = torch.maximum(bbox1[0], bbox2[0])
+    y0 = torch.maximum(bbox1[1], bbox2[1])
+    x1 = torch.minimum(bbox1[2], bbox2[2])
+    y1 = torch.minimum(bbox1[3], bbox2[3])
+    A1 = (bbox1[2]-bbox1[0]) * (bbox1[3]-bbox1[1])
+    A2 = (bbox2[2]-bbox2[0]) * (bbox2[3]-bbox2[1])
+    I = torch.clamp(x1-x0, min=0) * torch.clamp(y1-y0, min=0)
+    U = A1 + A2 - I
+    return I / U
+
+def IoUs(pred_bboxes, true_bbox):
     '''Intersection over union between one bounding box against a list of others.'''
     x0 = torch.maximum(true_bbox[0], pred_bboxes[:, 0])
     y0 = torch.maximum(true_bbox[1], pred_bboxes[:, 1])
@@ -19,9 +31,9 @@ def IoUs(true_bbox, pred_bboxes):
 def which_correct(preds, true, iou_threshold):
     '''For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.'''
     return [
-        [torch.any(IoUs(b_true, ps['bboxes']) >= iou_threshold)
-            for b_true in ts['bboxes']]
-        for ps, ts in zip(preds, true)
+        [len(p['bboxes']) > 0 and torch.any(IoUs(p['bboxes'], b_true) >= iou_threshold)
+            for b_true in t['bboxes']]
+        for p, t in zip(preds, true)
     ]
 
 def precision_recall_curve(preds, true, iou_threshold):
@@ -50,17 +62,17 @@ def AP(preds, true, iou_threshold):
     precision, recall = precision_recall_curve(preds, true, iou_threshold)
     return torch.sum(torch.diff(recall) * precision[1:])
 
-def filter_class(klass, preds, true):
+def filter_class(klass, preds, true, keys):
     '''Utility to filter a given class.'''
-    preds = [{k: v[p['classes'] == klass] for k, v in p.items()} for p in preds]
-    true = [{k: v[t['classes'] == klass] for k, v in t.items()} for t in true]
+    preds = [{k: p[k][p['classes'] == klass] for k in keys} for p in preds]
+    true = [{k: t[k][t['classes'] == klass] for k in keys} for t in true]
     return preds, true
 
 def mAP(preds, true, iou_threshold):
     '''mAP = average AP for all classes.'''
     assert 'classes' in preds[0] and 'classes' in true[0]
-    nclasses = 1+max([max(t['classes']) for t in true])
-    return sum(AP(*filter_class(klass, preds, true), iou_threshold) for klass in range(nclasses)) / nclasses
+    nclasses = 1+max([max(t['classes']) if len(t['classes']) else 0 for t in true])
+    return sum(AP(*filter_class(klass, preds, true, ['scores', 'bboxes']), iou_threshold) for klass in range(nclasses)) / nclasses
 
 def mAP_ious(preds, true, iou_thresholds):
     '''mAP = average AP for all classes and for a list of IoU thresholds.'''

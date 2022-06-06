@@ -47,7 +47,8 @@ val_dict_transform = od.aug.Compose([
 inv_transforms = od.inv_grid.MultiLevelInvTransform(
     [lambda datum, i=i: datum[f'scores{i}'][0] >= 0.5 for i in range(NLEVELS)],
     {'scores': [f'scores{i}' for i in range(NLEVELS)], 'bboxes': [f'bboxes{i}' for i in range(NLEVELS)], 'classes': [f'classes{i}' for i in range(NLEVELS)]},
-    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes(), 'classes': od.inv_grid.InvClasses()}
+    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes(), 'classes': od.inv_grid.InvClasses()},
+    True
 )
 
 ######################## DATA ########################
@@ -94,19 +95,17 @@ od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100, od.loop.StopPatien
 ######################## EVALUATE ########################
 
 # We are going to validate using the training data
-inputs, outputs = od.loop.eval(ts, model)
-
-inv_inputs = inv_transforms(inputs)
-inv_outputs = od.post.NMS(inv_transforms(outputs), lambda_nms=0.5)
+inputs, outputs = od.loop.eval(ts, model, inv_transforms)
+outputs = od.post.NMS(outputs, lambda_nms=0.5)
 
 LAMBDA_NMS = 0.5
-for i in range(4):
-    for j in range(2):
-        plt.subplot(2, 4, j*4+i+1)
-        od.plot.image(inputs[i]['image'])
-        od.plot.grid_bools(inputs[i]['image'], outputs[i][f'scores{j}'][0])
-        od.plot.grid_lines(inputs[i]['image'], *GRID_SIZES[j])
-        od.plot.bboxes(inputs[i]['image'], inv_outputs[i]['bboxes'])
-        od.plot.classes(inputs[i]['image'], inv_outputs[i]['bboxes'], inv_outputs[i]['classes'], od.data.VOCDetection.labels)
+for i in range(3*4):
+    plt.subplot(3, 4, i+1)
+    od.plot.image(inputs[i]['image'])
+    od.plot.bboxes(inputs[i]['image'], outputs[i]['bboxes'])
+    od.plot.classes(inputs[i]['image'], outputs[i]['bboxes'], outputs[i]['classes'], od.data.VOCDetection.labels)
 plt.tight_layout()
 plt.savefig('fcos.png')
+
+print('AP:', od.metrics.AP(outputs, inputs, 0.5))
+print('mAP:', od.metrics.mAP(outputs, inputs, 0.5))

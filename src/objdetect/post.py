@@ -21,13 +21,13 @@ def same(bi, bj):
 
 def NMS(data, lambda_nms=0.5):
     '''Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes. The `data` parameter is a list of dictionaries (i.e. `[{'scores': [0.1, 0.9], 'bboxes': [...]}])`. Notice this modifies your data in-place.'''
-    ret = []
-    for datum in data:
+    ret = [None] * len(data)
+    for di, datum in enumerate(data):
         ix = [i for i in range(len(datum['scores']))
             if not any(  # discard if all conditions met
                 i != j and
                 datum['scores'][j] > datum['scores'][i] and
                 same(datum['bboxes'][i], datum['bboxes'][j]) >= lambda_nms
             for j in range(len(datum['scores'])))]
-        ret.append({k: v[ix] for k, v in datum.items()})
+        ret[di] = {k: v[ix] for k, v in datum.items()}
     return ret

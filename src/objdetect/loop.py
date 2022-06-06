@@ -4,7 +4,6 @@ Convenience functions for the training and evaluation loops.
 
 import torch
 from time import time
-from objdetect.inv_grid import inv_collate
 
 def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None):
     '''Trains the model. `weight_loss_fns` and `loss_fns` are dictionaries, specifying whether the loss should be applied to that grid location and what loss to apply.'''
@@ -47,18 +46,21 @@ def train(tr, model, opt, weight_loss_fns, loss_fns, epochs, stop_condition=None
             print('Stopping due to criteria')
             break
 
-def eval(ts, model):
+def eval(ts, model, inv_grid):
     '''Evaluates the model.'''
     device = next(model.parameters()).device
-    inputs = []
-    outputs = []
+    inputs = [None] * len(ts.dataset)
+    outputs = [None] * len(ts.dataset)
     model.eval()
+    i = 0
     for data in ts:
         X = data['image'].to(device)
         with torch.no_grad():
             preds = model(X)
-        inputs += inv_collate(data, 'cpu')
-        outputs += inv_collate(preds, 'cpu')
+        n = len(X)
+        inputs[i:i+n] = [inv_grid({k: v[i] for k, v in data.items()}) for i in range(n)]
+        outputs[i:i+n] = [inv_grid({k: v[i].cpu() for k, v in preds.items()}) for i in range(n)]
+        i += n
     return inputs, outputs
 
 class StopPatience:

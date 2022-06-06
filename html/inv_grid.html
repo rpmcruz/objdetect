@@ -105,27 +105,28 @@ def InvClasses():
         return datum[key].argmax(0)[ix]
     return f
 
-def InvTransform(threshold_fn, inv_grid_dict):
+def InvTransform(threshold_fn, inv_grid_dict, keep_image):
     &#39;&#39;&#39;Applies the others methods to convert the grids into lists.&#39;&#39;&#39;
-    def f(data):
-        return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
+    def f(datum):
+        ix = threshold_fn(datum)
+        ret = {name: f(ix, name, datum) for name, f in inv_grid_dict.items()}
+        if keep_image and &#39;image&#39; in datum:
+            ret[&#39;image&#39;] = datum[&#39;image&#39;]
+        return ret
     return f
 
-def inv_collate(data, device):
-    &#39;&#39;&#39;Reverses torch&#39;s collate. Converts back to list of dictionaries.&#39;&#39;&#39;
-    n = len(data[next(iter(data))])
-    return [{k: v[i].to(device) for k, v in data.items()} for i in range(n)]
-
-def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
+def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict, keep_image):
     &#39;&#39;&#39;Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.&#39;&#39;&#39;
-    def f(data):
-        ret = [None] * len(data)
-        for di, datum in enumerate(data):
-            ret[di] = ret_dict = {}
-            for i, th in enumerate(threshold_fns):
-                ix = th(datum)
-                for name, f in inv_grid_dict.items():
-                    ret_dict[name] = ret_dict.get(name, []) + list(f(ix, dependencies[name][i], datum))
+    def f(datum):
+        ret = {}
+        for i in range(len(threshold_fns)):
+            ix = threshold_fns[i](datum)
+            for name, f in inv_grid_dict.items():
+                ret[name] = ret.get(name, []) + list(f(ix, dependencies[name][i], datum))
+        for k, v in ret.items():
+            ret[k] = torch.stack(v) if len(v) else torch.tensor(())
+        if keep_image and &#39;image&#39; in datum:
+            ret[&#39;image&#39;] = datum[&#39;image&#39;]
         return ret
     return f</code></pre>
 </details>
@@ -270,7 +271,7 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 </details>
 </dd>
 <dt id="inv_grid.InvTransform"><code class="name flex">
-<span>def <span class="ident">InvTransform</span></span>(<span>threshold_fn, inv_grid_dict)</span>
+<span>def <span class="ident">InvTransform</span></span>(<span>threshold_fn, inv_grid_dict, keep_image)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Applies the others methods to convert the grids into lists.</p></div>
@@ -278,15 +279,19 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def InvTransform(threshold_fn, inv_grid_dict):
+<pre><code class="python">def InvTransform(threshold_fn, inv_grid_dict, keep_image):
     &#39;&#39;&#39;Applies the others methods to convert the grids into lists.&#39;&#39;&#39;
-    def f(data):
-        return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
+    def f(datum):
+        ix = threshold_fn(datum)
+        ret = {name: f(ix, name, datum) for name, f in inv_grid_dict.items()}
+        if keep_image and &#39;image&#39; in datum:
+            ret[&#39;image&#39;] = datum[&#39;image&#39;]
+        return ret
     return f</code></pre>
 </details>
 </dd>
 <dt id="inv_grid.MultiLevelInvTransform"><code class="name flex">
-<span>def <span class="ident">MultiLevelInvTransform</span></span>(<span>threshold_fns, dependencies, inv_grid_dict)</span>
+<span>def <span class="ident">MultiLevelInvTransform</span></span>(<span>threshold_fns, dependencies, inv_grid_dict, keep_image)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Same as <code><a title="inv_grid.InvTransform" href="#inv_grid.InvTransform">InvTransform()</a></code>, but useful for multi-level grids, where <code>dependencies</code> may be provided to specify how a final grid depends on each grid.</p></div>
@@ -294,33 +299,20 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
+<pre><code class="python">def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict, keep_image):
     &#39;&#39;&#39;Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.&#39;&#39;&#39;
-    def f(data):
-        ret = [None] * len(data)
-        for di, datum in enumerate(data):
-            ret[di] = ret_dict = {}
-            for i, th in enumerate(threshold_fns):
-                ix = th(datum)
-                for name, f in inv_grid_dict.items():
-                    ret_dict[name] = ret_dict.get(name, []) + list(f(ix, dependencies[name][i], datum))
+    def f(datum):
+        ret = {}
+        for i in range(len(threshold_fns)):
+            ix = threshold_fns[i](datum)
+            for name, f in inv_grid_dict.items():
+                ret[name] = ret.get(name, []) + list(f(ix, dependencies[name][i], datum))
+        for k, v in ret.items():
+            ret[k] = torch.stack(v) if len(v) else torch.tensor(())
+        if keep_image and &#39;image&#39; in datum:
+            ret[&#39;image&#39;] = datum[&#39;image&#39;]
         return ret
     return f</code></pre>
-</details>
-</dd>
-<dt id="inv_grid.inv_collate"><code class="name flex">
-<span>def <span class="ident">inv_collate</span></span>(<span>data, device)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Reverses torch's collate. Converts back to list of dictionaries.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def inv_collate(data, device):
-    &#39;&#39;&#39;Reverses torch&#39;s collate. Converts back to list of dictionaries.&#39;&#39;&#39;
-    n = len(data[next(iter(data))])
-    return [{k: v[i].to(device) for k, v in data.items()} for i in range(n)]</code></pre>
 </details>
 </dd>
 </dl>
@@ -344,7 +336,6 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <li><code><a title="inv_grid.InvScoresWithClasses" href="#inv_grid.InvScoresWithClasses">InvScoresWithClasses</a></code></li>
 <li><code><a title="inv_grid.InvTransform" href="#inv_grid.InvTransform">InvTransform</a></code></li>
 <li><code><a title="inv_grid.MultiLevelInvTransform" href="#inv_grid.MultiLevelInvTransform">MultiLevelInvTransform</a></code></li>
-<li><code><a title="inv_grid.inv_collate" href="#inv_grid.inv_collate">inv_collate</a></code></li>
 </ul>
 </li>
 </ul>

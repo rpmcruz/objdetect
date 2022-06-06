@@ -33,7 +33,19 @@ Implementation of Precision-Recall and AP metrics.
 
 import torch
 
-def IoUs(true_bbox, pred_bboxes):
+def IoU(bbox1, bbox2):
+    &#39;&#39;&#39;Intersection over union between two bounding boxes.&#39;&#39;&#39;
+    x0 = torch.maximum(bbox1[0], bbox2[0])
+    y0 = torch.maximum(bbox1[1], bbox2[1])
+    x1 = torch.minimum(bbox1[2], bbox2[2])
+    y1 = torch.minimum(bbox1[3], bbox2[3])
+    A1 = (bbox1[2]-bbox1[0]) * (bbox1[3]-bbox1[1])
+    A2 = (bbox2[2]-bbox2[0]) * (bbox2[3]-bbox2[1])
+    I = torch.clamp(x1-x0, min=0) * torch.clamp(y1-y0, min=0)
+    U = A1 + A2 - I
+    return I / U
+
+def IoUs(pred_bboxes, true_bbox):
     &#39;&#39;&#39;Intersection over union between one bounding box against a list of others.&#39;&#39;&#39;
     x0 = torch.maximum(true_bbox[0], pred_bboxes[:, 0])
     y0 = torch.maximum(true_bbox[1], pred_bboxes[:, 1])
@@ -48,9 +60,9 @@ def IoUs(true_bbox, pred_bboxes):
 def which_correct(preds, true, iou_threshold):
     &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.&#39;&#39;&#39;
     return [
-        [torch.any(IoUs(b_true, ps[&#39;bboxes&#39;]) &gt;= iou_threshold)
-            for b_true in ts[&#39;bboxes&#39;]]
-        for ps, ts in zip(preds, true)
+        [len(p[&#39;bboxes&#39;]) &gt; 0 and torch.any(IoUs(p[&#39;bboxes&#39;], b_true) &gt;= iou_threshold)
+            for b_true in t[&#39;bboxes&#39;]]
+        for p, t in zip(preds, true)
     ]
 
 def precision_recall_curve(preds, true, iou_threshold):
@@ -79,17 +91,17 @@ def AP(preds, true, iou_threshold):
     precision, recall = precision_recall_curve(preds, true, iou_threshold)
     return torch.sum(torch.diff(recall) * precision[1:])
 
-def filter_class(klass, preds, true):
+def filter_class(klass, preds, true, keys):
     &#39;&#39;&#39;Utility to filter a given class.&#39;&#39;&#39;
-    preds = [{k: v[p[&#39;classes&#39;] == klass] for k, v in p.items()} for p in preds]
-    true = [{k: v[t[&#39;classes&#39;] == klass] for k, v in t.items()} for t in true]
+    preds = [{k: p[k][p[&#39;classes&#39;] == klass] for k in keys} for p in preds]
+    true = [{k: t[k][t[&#39;classes&#39;] == klass] for k in keys} for t in true]
     return preds, true
 
 def mAP(preds, true, iou_threshold):
     &#39;&#39;&#39;mAP = average AP for all classes.&#39;&#39;&#39;
     assert &#39;classes&#39; in preds[0] and &#39;classes&#39; in true[0]
-    nclasses = 1+max([max(t[&#39;classes&#39;]) for t in true])
-    return sum(AP(*filter_class(klass, preds, true), iou_threshold) for klass in range(nclasses)) / nclasses
+    nclasses = 1+max([max(t[&#39;classes&#39;]) if len(t[&#39;classes&#39;]) else 0 for t in true])
+    return sum(AP(*filter_class(klass, preds, true, [&#39;scores&#39;, &#39;bboxes&#39;]), iou_threshold) for klass in range(nclasses)) / nclasses
 
 def mAP_ious(preds, true, iou_thresholds):
     &#39;&#39;&#39;mAP = average AP for all classes and for a list of IoU thresholds.&#39;&#39;&#39;
@@ -133,8 +145,30 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
     return torch.sum(torch.diff(recall) * precision[1:])</code></pre>
 </details>
 </dd>
+<dt id="metrics.IoU"><code class="name flex">
+<span>def <span class="ident">IoU</span></span>(<span>bbox1, bbox2)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Intersection over union between two bounding boxes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def IoU(bbox1, bbox2):
+    &#39;&#39;&#39;Intersection over union between two bounding boxes.&#39;&#39;&#39;
+    x0 = torch.maximum(bbox1[0], bbox2[0])
+    y0 = torch.maximum(bbox1[1], bbox2[1])
+    x1 = torch.minimum(bbox1[2], bbox2[2])
+    y1 = torch.minimum(bbox1[3], bbox2[3])
+    A1 = (bbox1[2]-bbox1[0]) * (bbox1[3]-bbox1[1])
+    A2 = (bbox2[2]-bbox2[0]) * (bbox2[3]-bbox2[1])
+    I = torch.clamp(x1-x0, min=0) * torch.clamp(y1-y0, min=0)
+    U = A1 + A2 - I
+    return I / U</code></pre>
+</details>
+</dd>
 <dt id="metrics.IoUs"><code class="name flex">
-<span>def <span class="ident">IoUs</span></span>(<span>true_bbox, pred_bboxes)</span>
+<span>def <span class="ident">IoUs</span></span>(<span>pred_bboxes, true_bbox)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Intersection over union between one bounding box against a list of others.</p></div>
@@ -142,7 +176,7 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def IoUs(true_bbox, pred_bboxes):
+<pre><code class="python">def IoUs(pred_bboxes, true_bbox):
     &#39;&#39;&#39;Intersection over union between one bounding box against a list of others.&#39;&#39;&#39;
     x0 = torch.maximum(true_bbox[0], pred_bboxes[:, 0])
     y0 = torch.maximum(true_bbox[1], pred_bboxes[:, 1])
@@ -156,7 +190,7 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 </details>
 </dd>
 <dt id="metrics.filter_class"><code class="name flex">
-<span>def <span class="ident">filter_class</span></span>(<span>klass, preds, true)</span>
+<span>def <span class="ident">filter_class</span></span>(<span>klass, preds, true, keys)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Utility to filter a given class.</p></div>
@@ -164,10 +198,10 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def filter_class(klass, preds, true):
+<pre><code class="python">def filter_class(klass, preds, true, keys):
     &#39;&#39;&#39;Utility to filter a given class.&#39;&#39;&#39;
-    preds = [{k: v[p[&#39;classes&#39;] == klass] for k, v in p.items()} for p in preds]
-    true = [{k: v[t[&#39;classes&#39;] == klass] for k, v in t.items()} for t in true]
+    preds = [{k: p[k][p[&#39;classes&#39;] == klass] for k in keys} for p in preds]
+    true = [{k: t[k][t[&#39;classes&#39;] == klass] for k in keys} for t in true]
     return preds, true</code></pre>
 </details>
 </dd>
@@ -183,8 +217,8 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <pre><code class="python">def mAP(preds, true, iou_threshold):
     &#39;&#39;&#39;mAP = average AP for all classes.&#39;&#39;&#39;
     assert &#39;classes&#39; in preds[0] and &#39;classes&#39; in true[0]
-    nclasses = 1+max([max(t[&#39;classes&#39;]) for t in true])
-    return sum(AP(*filter_class(klass, preds, true), iou_threshold) for klass in range(nclasses)) / nclasses</code></pre>
+    nclasses = 1+max([max(t[&#39;classes&#39;]) if len(t[&#39;classes&#39;]) else 0 for t in true])
+    return sum(AP(*filter_class(klass, preds, true, [&#39;scores&#39;, &#39;bboxes&#39;]), iou_threshold) for klass in range(nclasses)) / nclasses</code></pre>
 </details>
 </dd>
 <dt id="metrics.mAP_ious"><code class="name flex">
@@ -244,9 +278,9 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <pre><code class="python">def which_correct(preds, true, iou_threshold):
     &#39;&#39;&#39;For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.&#39;&#39;&#39;
     return [
-        [torch.any(IoUs(b_true, ps[&#39;bboxes&#39;]) &gt;= iou_threshold)
-            for b_true in ts[&#39;bboxes&#39;]]
-        for ps, ts in zip(preds, true)
+        [len(p[&#39;bboxes&#39;]) &gt; 0 and torch.any(IoUs(p[&#39;bboxes&#39;], b_true) &gt;= iou_threshold)
+            for b_true in t[&#39;bboxes&#39;]]
+        for p, t in zip(preds, true)
     ]</code></pre>
 </details>
 </dd>
@@ -264,6 +298,7 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="metrics.AP" href="#metrics.AP">AP</a></code></li>
+<li><code><a title="metrics.IoU" href="#metrics.IoU">IoU</a></code></li>
 <li><code><a title="metrics.IoUs" href="#metrics.IoUs">IoUs</a></code></li>
 <li><code><a title="metrics.filter_class" href="#metrics.filter_class">filter_class</a></code></li>
 <li><code><a title="metrics.mAP" href="#metrics.mAP">mAP</a></code></li>

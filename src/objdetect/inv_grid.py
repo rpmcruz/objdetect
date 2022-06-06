@@ -76,26 +76,27 @@ def InvClasses():
         return datum[key].argmax(0)[ix]
     return f
 
-def InvTransform(threshold_fn, inv_grid_dict):
+def InvTransform(threshold_fn, inv_grid_dict, keep_image):
     '''Applies the others methods to convert the grids into lists.'''
-    def f(data):
-        return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
+    def f(datum):
+        ix = threshold_fn(datum)
+        ret = {name: f(ix, name, datum) for name, f in inv_grid_dict.items()}
+        if keep_image and 'image' in datum:
+            ret['image'] = datum['image']
+        return ret
     return f
 
-def inv_collate(data, device):
-    '''Reverses torch's collate. Converts back to list of dictionaries.'''
-    n = len(data[next(iter(data))])
-    return [{k: v[i].to(device) for k, v in data.items()} for i in range(n)]
-
-def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
+def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict, keep_image):
     '''Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.'''
-    def f(data):
-        ret = [None] * len(data)
-        for di, datum in enumerate(data):
-            ret[di] = ret_dict = {}
-            for i, th in enumerate(threshold_fns):
-                ix = th(datum)
-                for name, f in inv_grid_dict.items():
-                    ret_dict[name] = ret_dict.get(name, []) + list(f(ix, dependencies[name][i], datum))
+    def f(datum):
+        ret = {}
+        for i in range(len(threshold_fns)):
+            ix = threshold_fns[i](datum)
+            for name, f in inv_grid_dict.items():
+                ret[name] = ret.get(name, []) + list(f(ix, dependencies[name][i], datum))
+        for k, v in ret.items():
+            ret[k] = torch.stack(v) if len(v) else torch.tensor(())
+        if keep_image and 'image' in datum:
+            ret['image'] = datum['image']
         return ret
     return f
