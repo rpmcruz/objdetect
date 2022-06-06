@@ -2,6 +2,8 @@
 Post-processing techniques to reduce the amount of superfluous bounding boxes.
 '''
 
+import torch
+
 def valid_bboxes(bboxes):
     '''Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2<x1 or y2<y1.'''
     return torch.stack((
