@@ -84,7 +84,7 @@ def InvTransform(threshold_fn, inv_grid_dict):
 
 def inv_collate(data):
     '''Reverses torch's collate. Converts back to list of dictionaries.'''
-    n = len(data['image'])
+    n = len(data['bboxes'])
     return [{k: v[i] for k, v in data.items()} for i in range(n)]
 
 def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
