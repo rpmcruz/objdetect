@@ -16,14 +16,14 @@ def IoU(bbox1, bbox2):
     U = A1 + A2 - I
     return I / U
 
-def IoUs(pred_bboxes, true_bbox):
+def IoUs(bbox1, bboxes2):
     '''Intersection over union between one bounding box against a list of others.'''
-    x0 = torch.maximum(true_bbox[0], pred_bboxes[:, 0])
-    y0 = torch.maximum(true_bbox[1], pred_bboxes[:, 1])
-    x1 = torch.minimum(true_bbox[2], pred_bboxes[:, 2])
-    y1 = torch.minimum(true_bbox[3], pred_bboxes[:, 3])
-    A1 = (true_bbox[2]-true_bbox[0]) * (true_bbox[3]-true_bbox[1])
-    A2 = (pred_bboxes[:, 2]-pred_bboxes[:, 0]) * (pred_bboxes[:, 3]-pred_bboxes[:, 1])
+    x0 = torch.maximum(bbox1[0], bboxes2[:, 0])
+    y0 = torch.maximum(bbox1[1], bboxes2[:, 1])
+    x1 = torch.minimum(bbox1[2], bboxes2[:, 2])
+    y1 = torch.minimum(bbox1[3], bboxes2[:, 3])
+    A1 = (bbox1[2]-bbox1[0]) * (bbox1[3]-bbox1[1])
+    A2 = (bboxes2[:, 2]-bboxes2[:, 0]) * (bboxes2[:, 3]-bboxes2[:, 1])
     I = torch.clamp(x1-x0, min=0) * torch.clamp(y1-y0, min=0)
     U = A1 + A2 - I
     return I / U
@@ -31,13 +31,14 @@ def IoUs(pred_bboxes, true_bbox):
 def which_correct(preds, true, iou_threshold):
     '''For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.'''
     return [
-        [len(p['bboxes']) > 0 and torch.any(IoUs(p['bboxes'], b_true) >= iou_threshold)
-            for b_true in t['bboxes']]
+        [len(t['bboxes']) > 0 and torch.any(IoUs(bb, t['bboxes']) >= iou_threshold)
+            for bb in p['bboxes']]
         for p, t in zip(preds, true)
     ]
 
 def precision_recall_curve(preds, true, iou_threshold):
     '''Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes. `preds` and `true` are lists of dictionaries containing at least: scores and bboxes. A good explanation of this metric: https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173.'''
+    assert len(preds) == len(true), f'number of preds ({len(preds)}) must match number of ground-truth ({len(true)})'
     # match bounding by whether they are correct
     correct = which_correct(preds, true, iou_threshold)
     # flatten
