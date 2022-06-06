@@ -86,8 +86,8 @@ def GIoU(do_validation, smooth=1):
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
-            bboxes1 = ValidBboxes(bboxes1)
-            bboxes2 = ValidBboxes(bboxes2)
+            bboxes1 = valid_bboxes(bboxes1)
+            bboxes2 = valid_bboxes(bboxes2)
         # area of each
         A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
         A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])
@@ -145,8 +145,8 @@ def GIoU(do_validation, smooth=1):
     def f(bboxes1, bboxes2):
         # ensure bounding boxes make sense
         if do_validation:
-            bboxes1 = ValidBboxes(bboxes1)
-            bboxes2 = ValidBboxes(bboxes2)
+            bboxes1 = valid_bboxes(bboxes1)
+            bboxes2 = valid_bboxes(bboxes2)
         # area of each
         A1 = (bboxes1[:, 2]-bboxes1[:, 0])*(bboxes1[:, 3]-bboxes1[:, 1])
         A2 = (bboxes2[:, 2]-bboxes2[:, 0])*(bboxes2[:, 3]-bboxes2[:, 1])

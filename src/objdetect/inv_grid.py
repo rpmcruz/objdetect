@@ -82,6 +82,11 @@ def InvTransform(threshold_fn, inv_grid_dict):
         return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
     return f
 
+def inv_collate(data):
+    '''Reverses torch's collate. Converts back to list of dictionaries.'''
+    n = len(data['image'])
+    return [{k: v[i] for k, v in data.items()} for i in range(n)]
+
 def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
     '''Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.'''
     def f(data):
