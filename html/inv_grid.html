@@ -111,10 +111,10 @@ def InvTransform(threshold_fn, inv_grid_dict):
         return [{name: f(threshold_fn(d), name, d) for name, f in inv_grid_dict.items()} for d in data]
     return f
 
-def inv_collate(data):
+def inv_collate(data, device):
     &#39;&#39;&#39;Reverses torch&#39;s collate. Converts back to list of dictionaries.&#39;&#39;&#39;
-    n = len(data[&#39;bboxes&#39;])
-    return [{k: v[i] for k, v in data.items()} for i in range(n)]
+    n = len(data[next(iter(data))])
+    return [{k: v[i].to(device) for k, v in data.items()} for i in range(n)]
 
 def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
     &#39;&#39;&#39;Same as `InvTransform()`, but useful for multi-level grids, where `dependencies` may be provided to specify how a final grid depends on each grid.&#39;&#39;&#39;
@@ -309,7 +309,7 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 </details>
 </dd>
 <dt id="inv_grid.inv_collate"><code class="name flex">
-<span>def <span class="ident">inv_collate</span></span>(<span>data)</span>
+<span>def <span class="ident">inv_collate</span></span>(<span>data, device)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Reverses torch's collate. Converts back to list of dictionaries.</p></div>
@@ -317,10 +317,10 @@ def MultiLevelInvTransform(threshold_fns, dependencies, inv_grid_dict):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def inv_collate(data):
+<pre><code class="python">def inv_collate(data, device):
     &#39;&#39;&#39;Reverses torch&#39;s collate. Converts back to list of dictionaries.&#39;&#39;&#39;
-    n = len(data[&#39;bboxes&#39;])
-    return [{k: v[i] for k, v in data.items()} for i in range(n)]</code></pre>
+    n = len(data[next(iter(data))])
+    return [{k: v[i].to(device) for k, v in data.items()} for i in range(n)]</code></pre>
 </details>
 </dd>
 </dl>

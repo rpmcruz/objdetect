@@ -3,6 +3,7 @@ PyTorch already comes with most useful losses, such as MSE, BCE and sigmoid_foca
 '''
 
 import torch
+from objdetect.post import valid_bboxes
 
 def convert_rel2abs(bboxes):
     '''Similar to `inv_grid.InvRelBboxes`. Converts relative bounding boxes to absolute bounding boxes.'''
@@ -21,15 +22,6 @@ def ConvertRel2Abs(loss_fn):
     def f(bboxes1, bboxes2):
         return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
     return f
-
-def valid_bboxes(bboxes):
-    '''Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2<x1 or y2<y1.'''
-    return torch.stack((
-        torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
-        torch.clamp(torch.minimum(bboxes[:, 1], bboxes[:, 3]), min=0),
-        torch.clamp(torch.maximum(bboxes[:, 0], bboxes[:, 2]), max=1),
-        torch.clamp(torch.maximum(bboxes[:, 1], bboxes[:, 3]), max=1),
-    ), 1)
 
 def IoU(do_validation, smooth=1):
     '''Implements loss 1-IoU (Intersection over Union).'''
