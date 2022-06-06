@@ -37,7 +37,7 @@ The package is divided into the following components:
 
 ## Getting Started
 
-Two examples are provided in the `src` folder.
+Three examples are provided in the `src` folder.
 
 This package relies heavily on two things: (i) dictionaries to bind everything together (grid/model/loss/etc), and (ii) function callbacks to decompose functionality into smaller parts.
 
@@ -157,26 +157,21 @@ od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100)
 
 (In this specific case, we have applied a conversion on the bounding boxes because `GIoU` requires absolute bounding boxes and we are predicting bounding boxes relative to each location.)
 
-**Evaluation:** Akin to the training loop, there is an evaluation loop, which simply concatenates all the data and predictions into two lists.
+**Evaluation:** Firstly, grids produced by the model must be inverted. For that several methods are provided (`inv_grid`). Furthermore, a filter function must be provided to choose which objects are to be selected (typically, those with P≥0.5).
 
 ```python
-inputs, outputs = od.loop.eval(tr, model)
+inv_transforms = od.inv_grid.InvTransform(
+    lambda datum: datum['scores'][0] >= 0.5,
+    {'scores': od.inv_grid.InvScoresWithClasses('classes'), 'classes': od.inv_grid.InvClasses(), 'bboxes': od.inv_grid.InvRelBboxes()},
+    True
+)
 ```
 
-The grids produced by the model must be inverted. For that several methods are provided (`inv_grid`). Furthermore, a filter function must be provided to choose which objects are to be selected (typically, those with P≥0.5).
+Akin to the training loop, there is an evaluation loop, which simply concatenates all the data and predictions into two lists. We can also apply the popular [NMS](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c) post-processing algorithm.
 
 ```python
-inv_transforms = od.inv_grid.InvTransform(
-    lambda datum: datum['scores'][0] >= 0.5,
-    {'scores': od.inv_grid.InvScores(), 'bboxes': od.inv_grid.InvRelBboxes()}
-)
-
-
-
-inv_transforms = od.inv_grid.InvTransform(
-    lambda datum: datum['scores'][0] >= 0.5,
-    {'scores': od.inv_grid.InvScoresWithClasses('classes'), 'classes': od.inv_grid.InvClasses(), 'bboxes': od.inv_grid.InvRelBboxes()}
-)
+inputs, outputs = od.loop.eval(tr, model, inv_transforms)
+outputs = od.post.NMS(outputs, 0.5)
 ```
 
 We may now use metrics or visualize the results. You may want to apply non-maximum suppression for best results, especially when using such generous slicing as we have used here.
