@@ -17,7 +17,7 @@ def grid_bools(image, grid):
     '''Draws a grid boolean matrix, such as the scores grid.'''
     assert len(grid.shape) == 2
     _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap(['green']))
+    plt.imshow(np.ones((H, W)), alpha=0.5*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap(['green']))
 
 def grid_text(image, grid):
     '''Draws a grid matrix of values, such as the classes grid.'''

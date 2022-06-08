@@ -46,7 +46,7 @@ def grid_bools(image, grid):
     &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
     assert len(grid.shape) == 2
     _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))
+    plt.imshow(np.ones((H, W)), alpha=0.5*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))
 
 def grid_text(image, grid):
     &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
@@ -135,7 +135,7 @@ def show():
     &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
     assert len(grid.shape) == 2
     _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.2*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))</code></pre>
+    plt.imshow(np.ones((H, W)), alpha=0.5*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))</code></pre>
 </details>
 </dd>
 <dt id="plot.grid_lines"><code class="name flex">
