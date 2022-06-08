@@ -56,6 +56,8 @@ def precision_recall_curve(preds, true, iou_threshold):
     for i in range(len(precision)-1, 0, -1):
         if precision[i-1] < precision[i]:
             precision[i-1] = precision[i]
+    precision = torch.cat((torch.tensor([1]), precision, torch.tensor([0])))
+    recall = torch.cat((torch.tensor([0]), recall, torch.tensor([1])))
     return precision, recall
 
 def AP(preds, true, iou_threshold):
@@ -86,10 +88,12 @@ if __name__ == '__main__':  # DEBUG
         [0.5, 0, 0.6, 1],  # half intersection
         [0.4, 0, 0.6, 1],  # full intersection
     ])
-    print('IoUs:', IoUs(pred_bboxes, true_bbox))
+    print('IoUs:', IoUs(true_bbox, pred_bboxes))
     true = [{'bboxes': true_bbox[None]}]
     preds = [{'bboxes': pred_bboxes, 'scores': [0.5, 0.4, 0.8]}]
     for th in [0, 0.5, 1]:
         print(f'which_correct {th}:', which_correct(preds, true, th))
     for th in [0, 0.5, 1]:
         print(f'precision_recall_curve {th}:', precision_recall_curve(preds, true, th))
+    for th in [0, 0.5, 1]:
+        print(f'AP {th}:', AP(preds, true, th))
