@@ -39,8 +39,8 @@ from torchvision.transforms.functional import resize, InterpolationMode
 def grid_lines(image, h, w):
     &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
     _, H, W = image.shape
-    plt.vlines(np.linspace(0, W, w+1), 0, H, c=&#39;gray&#39;, lw=1)
-    plt.hlines(np.linspace(0, H, h+1), 0, W, c=&#39;gray&#39;, lw=1)
+    plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, lw=1)
+    plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, lw=1)
 
 def grid_bools(image, grid):
     &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
@@ -150,8 +150,8 @@ def show():
 <pre><code class="python">def grid_lines(image, h, w):
     &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
     _, H, W = image.shape
-    plt.vlines(np.linspace(0, W, w+1), 0, H, c=&#39;gray&#39;, lw=1)
-    plt.hlines(np.linspace(0, H, h+1), 0, W, c=&#39;gray&#39;, lw=1)</code></pre>
+    plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, lw=1)
+    plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, lw=1)</code></pre>
 </details>
 </dd>
 <dt id="plot.grid_text"><code class="name flex">

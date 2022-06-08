@@ -10,8 +10,8 @@ from torchvision.transforms.functional import resize, InterpolationMode
 def grid_lines(image, h, w):
     '''Draws grid lines.'''
     _, H, W = image.shape
-    plt.vlines(np.linspace(0, W, w+1), 0, H, c='gray', lw=1)
-    plt.hlines(np.linspace(0, H, h+1), 0, W, c='gray', lw=1)
+    plt.vlines(np.linspace(0, W, w+1), 0, H, color='gray', lw=1)
+    plt.hlines(np.linspace(0, H, h+1), 0, W, color='gray', lw=1)
 
 def grid_bools(image, grid):
     '''Draws a grid boolean matrix, such as the scores grid.'''
