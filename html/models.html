@@ -145,7 +145,7 @@ import torch.nn.functional as F
 
 class Model(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 20, 5)
         self.conv2 = nn.Conv2d(20, 20, 5)
 
@@ -155,6 +155,11 @@ class Model(nn.Module):
 </code></pre>
 <p>Submodules assigned in this way will be registered, and will have their
 parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
 <p>:ivar training: Boolean represents whether this module is in training or
 evaluation mode.
 :vartype training: bool</p>
@@ -176,17 +181,6 @@ evaluation mode.
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.ConvBatchNorm.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.ConvBatchNorm.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.ConvBatchNorm.forward"><code class="name flex">
@@ -239,17 +233,6 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.HeadCenterSizeBboxes.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.HeadCenterSizeBboxes.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.HeadCenterSizeBboxes.forward"><code class="name flex">
@@ -305,17 +288,6 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.HeadClasses.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.HeadClasses.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.HeadClasses.forward"><code class="name flex">
@@ -369,17 +341,6 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.HeadExpBboxes.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.HeadExpBboxes.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.HeadExpBboxes.forward"><code class="name flex">
@@ -433,17 +394,6 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.HeadScores.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.HeadScores.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.HeadScores.forward"><code class="name flex">
@@ -498,17 +448,6 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.Model.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.Model.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.Model.forward"><code class="name flex">
@@ -569,17 +508,6 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="models.SimpleBackbone.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="models.SimpleBackbone.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="models.SimpleBackbone.forward"><code class="name flex">
@@ -624,57 +552,43 @@ registered hooks while the latter silently ignores them.</p>
 <li>
 <h4><code><a title="models.ConvBatchNorm" href="#models.ConvBatchNorm">ConvBatchNorm</a></code></h4>
 <ul class="">
-<li><code><a title="models.ConvBatchNorm.dump_patches" href="#models.ConvBatchNorm.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.ConvBatchNorm.forward" href="#models.ConvBatchNorm.forward">forward</a></code></li>
-<li><code><a title="models.ConvBatchNorm.training" href="#models.ConvBatchNorm.training">training</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="models.HeadCenterSizeBboxes" href="#models.HeadCenterSizeBboxes">HeadCenterSizeBboxes</a></code></h4>
 <ul class="">
-<li><code><a title="models.HeadCenterSizeBboxes.dump_patches" href="#models.HeadCenterSizeBboxes.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.HeadCenterSizeBboxes.forward" href="#models.HeadCenterSizeBboxes.forward">forward</a></code></li>
-<li><code><a title="models.HeadCenterSizeBboxes.training" href="#models.HeadCenterSizeBboxes.training">training</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="models.HeadClasses" href="#models.HeadClasses">HeadClasses</a></code></h4>
 <ul class="">
-<li><code><a title="models.HeadClasses.dump_patches" href="#models.HeadClasses.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.HeadClasses.forward" href="#models.HeadClasses.forward">forward</a></code></li>
-<li><code><a title="models.HeadClasses.training" href="#models.HeadClasses.training">training</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="models.HeadExpBboxes" href="#models.HeadExpBboxes">HeadExpBboxes</a></code></h4>
 <ul class="">
-<li><code><a title="models.HeadExpBboxes.dump_patches" href="#models.HeadExpBboxes.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.HeadExpBboxes.forward" href="#models.HeadExpBboxes.forward">forward</a></code></li>
-<li><code><a title="models.HeadExpBboxes.training" href="#models.HeadExpBboxes.training">training</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="models.HeadScores" href="#models.HeadScores">HeadScores</a></code></h4>
 <ul class="">
-<li><code><a title="models.HeadScores.dump_patches" href="#models.HeadScores.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.HeadScores.forward" href="#models.HeadScores.forward">forward</a></code></li>
-<li><code><a title="models.HeadScores.training" href="#models.HeadScores.training">training</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="models.Model" href="#models.Model">Model</a></code></h4>
 <ul class="">
-<li><code><a title="models.Model.dump_patches" href="#models.Model.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.Model.forward" href="#models.Model.forward">forward</a></code></li>
-<li><code><a title="models.Model.training" href="#models.Model.training">training</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="models.SimpleBackbone" href="#models.SimpleBackbone">SimpleBackbone</a></code></h4>
 <ul class="">
-<li><code><a title="models.SimpleBackbone.dump_patches" href="#models.SimpleBackbone.dump_patches">dump_patches</a></code></li>
 <li><code><a title="models.SimpleBackbone.forward" href="#models.SimpleBackbone.forward">forward</a></code></li>
-<li><code><a title="models.SimpleBackbone.training" href="#models.SimpleBackbone.training">training</a></code></li>
 </ul>
 </li>
 </ul>

@@ -77,8 +77,8 @@ def mAP(preds, true, iou_threshold):
     nclasses = 1+max([max(t['classes']) if len(t['classes']) else 0 for t in true])
     return sum(AP(*filter_class(klass, preds, true, ['scores', 'bboxes']), iou_threshold) for klass in range(nclasses)) / nclasses
 
-def mAP_ious(preds, true, iou_thresholds):
-    '''mAP = average AP for all classes and for a list of IoU thresholds.'''
+def mAP_ious(preds, true, iou_thresholds=torch.arange(0.05, 1, 0.05)):
+    '''mAP = average AP for all classes and for a list of IoU thresholds. This is the metric used by MS-COCO. By default, we evaluate IoU@[0.05,0.95,0.05].'''
     return torch.mean([mAP(preds, true, th) for th in iou_thresholds])
 
 if __name__ == '__main__':  # DEBUG
