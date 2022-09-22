@@ -4,176 +4,130 @@ In one-shot object detection, we need to transform the input onto a grid to comp
 
 import torch
 
-def SliceAcrossBbox():
-    '''Choose all grid locations that contain the entirety of the object, even if partially.'''
-    def f(h, w, bbox):
-        yy = slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h)))
-        xx = slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w)))
-        return yy, xx
-    return f
-
-def SliceAcrossCeilBbox():
-    '''Choose all grid locations that contain the entirety of the object (similar to FCOS).'''
-    def f(h, w, bbox):
-        yy = slice(int(torch.ceil(bbox[1]*h)), int(torch.ceil(bbox[3]*h)))
-        xx = slice(int(torch.ceil(bbox[0]*w)), int(torch.ceil(bbox[2]*w)))
-        return yy, xx
-    return f
-
-def SliceOnlyCenterBbox():
+def slices_center_locations(h, w, batch_bboxes):
     '''Place the object only on the center location of the object (similar to YOLOv3).'''
-    def f(h, w, bbox):
-        xc = (bbox[0]+bbox[2])/2
-        yc = (bbox[1]+bbox[3])/2
-        x = int(xc*w)
-        y = int(yc*h)
-        return slice(y, y+1), slice(x, x+1)
-    return f
+    batch_yy = ((int(((bbox[1]+bbox[3])/2)*h) for bbox in bboxes) for bboxes in batch_bboxes)
+    batch_xx = ((int(((bbox[0]+bbox[2])/2)*w) for bbox in bboxes) for bboxes in batch_bboxes)
+    return [[(slice(y, y+1), slice(x, x+1)) for y, x in zip(yy, xx)] for yy, xx in zip(batch_yy, batch_xx)]
 
-###########################################################
+def slices_all_locations(h, w, batch_bboxes):
+    '''Choose all grid locations that contain the entirety of the object, even if partially.'''
+    return [[(
+        slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h))),
+        slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w))),
+    ) for bbox in bboxes] for bboxes in batch_bboxes]
 
-def SizeFilter(min_cells, max_cells):
-    '''Filter objects whose size is within [`min_cells`, `max_cells`] (the FCOS paper recommends [4, 8]).'''
-    def f(h, w, bbox):
-        xcells = (bbox[2]-bbox[0]) * w
-        ycells = (bbox[3]-bbox[1]) * h
-        return min_cells <= xcells <= max_cells
-    return f
+def scores(h, w, batch_slices):
+    '''Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.'''
+    n = len(batch_slices)
+    grid = torch.zeros((n, 1, h, w), dtype=torch.float32)
+    for i, slices in enumerate(batch_slices):
+        for yy, xx in slices:
+            grid[i, :, yy, xx] = 1
+    return grid
 
-def compute_clusters(ds, n):
-    '''Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.'''
-    from sklearn.cluster import KMeans
-    BB = [d['bboxes'] for d in ds]
-    BB = [(b[2], b[3]) for bb in BB for b in bb]
-    return KMeans(n).fit(BB).cluster_centers_
+def inv_scores(hasobjs, scores):
+    '''Invert the grid created by the function with the same name.'''
+    assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
+    return scores[hasobjs]
 
-def AnchorFilter(anchor, min_iou):
-    '''Filter only objects with ≥IoU of a given `anchor`.'''
-    from . import metrics
-    def f(h, w, bbox):
-        xc = (bbox[0]+bbox[2]) / 2
-        yc = (bbox[1]+bbox[3]) / 2
-        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
-            xc+anchor[0]/2, yc+anchor[1]/2)
-        return metrics.IoU(bbox, anchor_box) >= min_iou
-    return f
+def offset_logsize_bboxes(h, w, batch_slices, batch_bboxes):
+    '''Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations.'''
+    n = len(batch_slices)
+    grid = torch.zeros((n, 4, h, w), dtype=torch.float32)
+    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
+        for (yy, xx), bbox in zip(slices, bboxes):
+            xc = (bbox[0]+bbox[2])/2
+            yc = (bbox[1]+bbox[3])/2
+            grid[i, 0, yy, xx] = (xc % (1/w))*w
+            grid[i, 1, yy, xx] = (yc % (1/h))*h
+            grid[i, 2, yy, xx] = torch.log(torch.as_tensor(bbox[2] - bbox[0]))
+            grid[i, 3, yy, xx] = torch.log(torch.as_tensor(bbox[3] - bbox[1]))
+    return grid
 
-###########################################################
+def inv_offset_logsize_bboxes(hasobjs, bboxes):
+    '''Invert the grid created by the function with the same name.'''
+    assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
+    n, _, h, w = hasobjs.shape
+    xx = torch.arange(0, w, dtype=torch.float32)[None, :]
+    yy = torch.arange(0, h, dtype=torch.float32)[:, None]
+    xc = (xx+bboxes[:, 0])/w
+    yc = (yy+bboxes[:, 1])/h
+    bw = torch.exp(bboxes[:, 2])
+    bh = torch.exp(bboxes[:, 3])
+    bboxes_offset = torch.stack((
+        xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
+    ), -1)
+    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
 
-def NewScore():
-    '''Grid 1xhxw.'''
-    def f(h, w):
-        return torch.zeros((1, h, w), dtype=torch.float32)
-    return f
-
-def NewBboxes():
-    '''Grid 4xhxw.'''
-    def f(h, w):
-        return torch.zeros((4, h, w), dtype=torch.float32)
-    return f
-
-def NewClasses():
-    '''Grid hxw.'''
-    def f(h, w):  # CrossEntropyLoss needs (h, w), not (1, h, w)
-        return torch.zeros((h, w), dtype=torch.int64)
-    return f
-
-NewCenterness = NewScore
-
-###########################################################
-
-def SetScore():
-    '''Sets 1 wherever the object is, according to the given slicing.'''
-    def f(grid, yy, xx, datum, i):
-        grid[:, yy, xx] = 1
-    return f
-
-def SetOffsetSizeBboxes():
-    '''Sets 1 on the object center location. This is similar to YOLOv3: https://arxiv.org/abs/1804.02767. Please notice this only makes sense if slicing only one location per bbox (e.g. `SliceOnlyCenterBbox()`), because the offset is relative to the center of the current location.'''
-    def f(grid, yy, xx, datum, i):
-        bbox = datum['bboxes'][i]
-        _, h, w = grid.shape
-        xc = (bbox[0]+bbox[2])/2
-        yc = (bbox[1]+bbox[3])/2
-        grid[0, yy, xx] = (xc % (1/w))*w
-        grid[1, yy, xx] = (yc % (1/h))*h
-        grid[2, yy, xx] = torch.log(bbox[2] - bbox[0])
-        grid[3, yy, xx] = torch.log(bbox[3] - bbox[1])
-    return f
-
-def SetOffsetSizeBboxesAnchor(anchor):
-    '''Sets 1 on the object center location relative to the given anchor. See also `SetOffsetSizeBboxes()` for more details.'''
-    ph, pw = anchor
-    def f(grid, yy, xx, datum, i):
-        bbox = datum['bboxes'][i]
-        _, h, w = grid.shape
-        xc = (bbox[0]+bbox[2])/2
-        yc = (bbox[1]+bbox[3])/2
-        grid[0, yy, xx] = (xc % (1/w))*w
-        grid[1, yy, xx] = (yc % (1/h))*h
-        grid[2, yy, xx] = torch.log((bbox[2] - bbox[0])/pw)
-        grid[3, yy, xx] = torch.log((bbox[3] - bbox[1])/ph)
-    return f
-
-def SetRelBboxes():
+def relative_bboxes(h, w, batch_slices, batch_bboxes):
     '''For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
-    def f(grid, yy, xx, datum, i):
-        bbox = datum['bboxes'][i]
-        _, h, w = grid.shape
-        _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32)[None, :]
-        _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32)[:, None]
-        grid[0, yy, xx] = (_xx/w) - bbox[0]
-        grid[1, yy, xx] = (_yy/h) - bbox[1]
-        grid[2, yy, xx] = bbox[2] - (_xx/w)
-        grid[3, yy, xx] = bbox[3] - (_yy/h)
-    return f
+    n = len(batch_slices)
+    grid = torch.zeros((n, 4, h, w), dtype=torch.float32)
+    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
+        for (yy, xx), bbox in zip(slices, bboxes):
+            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32)[None, :]
+            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32)[:, None]
+            grid[i, 0, yy, xx] = (_xx/w) - bbox[0]
+            grid[i, 1, yy, xx] = (_yy/h) - bbox[1]
+            grid[i, 2, yy, xx] = bbox[2] - (_xx/w)
+            grid[i, 3, yy, xx] = bbox[3] - (_yy/h)
+    return grid
 
-def SetClasses():
+def inv_relative_bboxes(hasobjs, bboxes):
+    '''Invert the grid created by the function with the same name.'''
+    assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
+    _, _, h, w = hasobjs.shape
+    xx = torch.arange(0, w, dtype=torch.float32)[None, :]
+    yy = torch.arange(0, h, dtype=torch.float32)[:, None]
+    bboxes_offset = torch.stack((
+        xx/w-bboxes[:, 0], yy/h-bboxes[:, 1],
+        bboxes[:, 2]+xx/w, bboxes[:, 3]+yy/h
+    ), -1)
+    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
+
+def classes(h, w, batch_slices, batch_classes):
     '''Sets the respective class wherever the object is, according to the given slicing.'''
-    def f(grid, yy, xx, datum, i):
-        klass = datum['classes'][i]
-        grid[yy, xx] = klass
-    return f
+    n = len(batch_slices)
+    grid = torch.zeros((n, h, w), dtype=torch.int64)
+    for i, (slices, classes) in enumerate(zip(batch_slices, batch_classes)):
+        for (yy, xx), klass in zip(slices, classes):
+            grid[i, yy, xx] = klass
+    return grid
 
-def SetCenterness():
-    '''Sets the distance to the object for each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
-    def f(grid, yy, xx, datum, i):
-        bbox = datum['bboxes'][i]
-        _, h, w = grid.shape
-        _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32)[None, :]
-        _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32)[:, None]
-        L = (_xx/w) - bbox[0]
-        T = (_yy/h) - bbox[1]
-        R = bbox[2] - (_xx/w)
-        B = bbox[3] - (_yy/h)
-        factor1 = torch.minimum(L, R)/torch.maximum(L, R)
-        factor2 = torch.minimum(T, B)/torch.maximum(T, B)
-        return torch.sqrt(factor1 * factor2)
-    return f
+def inv_classes(hasobjs, classes):
+    '''Invert the grid created by the function with the same name.'''
+    assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
+    return [kk[h[0]] for h, kk in zip(hasobjs, classes)]
 
-###########################################################
-
-def RemoveKeys(keys):
-    '''Removing keys in the transform is useful whenever you want to reject some keys to go to the data loader.'''
-    keys = frozenset(keys)
-    def f(**datum):
-        return {k: v for k, v in datum.items() if k not in keys}
-    return f
-
-def Transform(grid_size, filter_fn, slice_fn, new_grid_dict, set_grid_dict):
-    '''Applies the others methods to build the respective grids.'''
-    def f(**datum):
-        h, w = grid_size
-        grids = {name: f(h, w) for name, f in new_grid_dict.items()}
-        for i, bbox in enumerate(datum['bboxes']):
-            if filter_fn != None and not filter_fn(h, w, bbox):
-                continue
-            yy, xx = slice_fn(h, w, bbox)
-            for name, f in set_grid_dict.items():
-                f(grids[name], yy, xx, datum, i)
-        return {**datum, **grids}
-    return f
-
-def merge_dicts(l):
-    '''Utility function that concatenates a list of dictionaries into a single dictionary, useful for multi-level dictionaries.'''
-    return {k: v for d in l for k, v in d.items()}
+if __name__ == '__main__':  # DEBUG
+    import matplotlib.pyplot as plt
+    import data, aug, plot
+    ds = data.VOCDetection('/data', 'train', aug.Resize(256, 256))
+    imgs, targets = data.collate_fn([ds[i] for i in range(5)])
+    # debug list => grid
+    slices = slices_center_locations(8, 8, targets['bboxes'])
+    scores_grid = scores(8, 8, slices)
+    bboxes_grid = offset_logsize_bboxes(8, 8, slices, targets['bboxes'])
+    classes_grid = classes(8, 8, slices, targets['classes'])
+    for i in range(4):
+        plt.subplot(2, 2, i+1)
+        plot.image(imgs[i])
+        plot.grid_bools(imgs[i], scores_grid[i, 0])
+        plot.grid_text(imgs[i], classes_grid[i]+scores_grid[i, 0], int)
+        plot.bboxes(imgs[i], ds[i]['bboxes'])
+    plt.suptitle('debug list => grid')
+    plt.show()
+    # debug list => grid => list
+    hasobjs_grid = scores_grid >= 0.5
+    scores_list = inv_scores(hasobjs_grid, scores_grid)
+    bboxes_list = inv_offset_logsize_bboxes(hasobjs_grid, bboxes_grid)
+    classes_list = inv_classes(hasobjs_grid, classes_grid)
+    for i in range(4):
+        plt.subplot(2, 2, i+1)
+        plot.image(imgs[i])
+        plot.bboxes(imgs[i], bboxes_list[i])
+        plot.bboxes(imgs[i], ds[i]['bboxes'], ec='green')
+        plot.classes(imgs[i], bboxes_list[i], classes_list[i])
+    plt.suptitle('debug list => grid => list')
+    plt.show()

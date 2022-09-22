@@ -6,13 +6,10 @@ Lightweight and versatile one-stage object detection framework.
 I am a post-doc at FEUP (University of Porto) working on perception for autonomous driving ([THEIA project](https://noticias.up.pt/u-porto-bosch-projeto-de-investigacao-28-milhoes-de-euros/)). I developed this one-stage object detection framework because existing frameworks, such as [detectron2](https://github.com/facebookresearch/detectron2), are either for two-stage models or are not versatile and simple enough to adapt for new models. At the very least, I hope this package is educational for someone learning object detection. Contact: [Ricardo Cruz](mailto:rpcruz@fe.up.pt).
 
 Functionality:
-* Pre-processing pipeline: data augmentation, grid transformations
-* Support for multiple grids: anchors and multi-scale
-* Model heads, training and evaluation routines
-* Some extra losses
-* Post-processing: grid inversion, non-maximum suppression
-* Plot utilities
-* Metrics: precision-recall curve, AP
+* Grid transformations
+* Data loaders, data augmentation
+* Support for anchors and multiple grids
+* Utilities such as non-maximum suppression, plotting, extra losses, evaluation metrics
 
 ## Install
 
@@ -24,183 +21,140 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 
 The package is divided into the following components:
 
+* [`anchors`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/anchors.html): Utilities to create and filter objects based on filters.
 * [`aug`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/aug.html): Some data augmentation routines.
 * [`data`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/data.html): Toy datasets.
 * [`grid`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/grid.html): Bounding box <=> grid conversion functions.
-* [`inv_grid`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/inv_grid.html): Inversions for the `grid` methods.
-* [`loop`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/loop.html): Convenience functions to train and evaluate the model.
 * [`losses`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/losses.html): Extra losses for object detection.
 * [`metrics`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/metrics.html): The common AP/Precision-Recall metrics.
-* [`models`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/models.html): Backbone example and several common heads.
 * [`plot`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/plot.html): Common plotting methods.
 * [`post`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/post.html): Post-processing algorithms, such as non-maximum suppression.
 
 ## Getting Started
 
-Three examples are provided in the `src` folder.
-
-This package relies heavily on two things: (i) dictionaries to bind everything together (grid/model/loss/etc), and (ii) function callbacks to decompose functionality into smaller parts.
-
-**Grid:** When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). We recommend doing it as the final step of the data augmentation pipeline. Doing it this way takes advantage of DataLoader parallelization. For the transformation pipeline, we provide methods that function similarly to the [albumentations package](https://albumentations.ai/), and, in fact, should be compatible with it so that you may use albumentations if you wish.
-
-Let us build three grids specifying whether an object is occupying the given location (`scores`), the classes grid (`classes`), and the bounding boxes information grid (`bboxes`).
+A notebook example is provided in the `src` folder which provides boiler-plate code to get you started. Following the PyTorch tradition, this package does not try to do too much behind the scenes.
 
 ```python
 import objdetect as od
-
-grid_size = (8, 8)
-# if any objects should be filtered (useful for multiple grids)
-filter_function = None
-# which locations are occupied by the object
-slicing_function = od.grid.SliceAcrossCeilBbox()
-create_grids = {
-    'scores': od.grid.NewScore(),
-    'classes': od.grid.NewClasses(),
-    'bboxes': od.grid.NewBboxes()
-}
-map_grids = {
-    'scores': od.grid.SetScore(),
-    'classes': od.grid.SetClasses(),
-    'bboxes': od.grid.SetRelBboxes()
-}
-
-grid_transform = od.grid.Transform(grid_size, filter_function, slicing_function, create_grids, map_grids)
-
-dict_transform = od.aug.Compose(
-    od.aug.Resize(256, 256),
-    grid_transform
-)
-ds = od.data.VOCDetection('data', 'train', None, dict_transform, download=True)
 ```
 
-Looking at the pipeline:
+**Augmentation:** Some data augmentation routines for object detection are available. These are mainly provided for educational purposes and might be removed in the future. We recommend you use [Albumentations](https://albumentations.ai/), which work similarly to ours.
+
+```python
+transformations = od.aug.Compose([
+    od.aug.Resize(int(256*1.1), int(256*1.1)),
+    od.aug.RandomCrop(256, 256),
+    od.aug.RandomHflip(),
+    od.aug.RandomBrightnessContrast(0.1, 0.1),
+    od.aug.ImageNetNormalize(),
+])
+```
+
+**Data:** Some data loaders are provided: Pascal VOC, Coco, KITTI.
+
+```python
+ds = od.data.VOCDetection('data', 'train', transformations, download=True)
+```
+
+Each sample is a dictionary composed of at least: image, bboxes and classes.
 
 ```python
 d = ds[0]
-print('contains:', d.keys())
-for k, v in d.items():
-    print(k, v.shape)
+print(d.keys())
 ```
 
-Output:
-
 ```
-contains: dict_keys(['image', 'bboxes', 'classes', 'scores'])
-image (256, 256, 3)
-bboxes (4, 8, 8)
-classes (8, 8)
-scores (1, 8, 8)
+dict_keys(['image', 'bboxes', 'classes'])
 ```
 
-Plot the `scores` and `classes` matrices grids:
+**Plot:** We provide some plotting routines for convenience.
 
 ```python
-import matplotlib.pyplot as plt
-d = ds[0]
-plt.imshow(d['image'])
+od.plot.image(d['image'])
 od.plot.grid_lines(d['image'], 8, 8)
-od.plot.grid_bools(d['image'], d['scores'][0])
-od.plot.grid_text(d['image'], d['classes'] + d['scores'][0].astype(int))
-plt.show()
+od.plot.bboxes(d['image'], d['bboxes'])
+od.plot.classes(d['image'], d['bboxes'], d['classes'], ds.labels)
+od.plot.show()
 ```
 
-![Grids output](imgs/grids.png)
+![](src/image.jpg)
 
-(The reason why we sum `classes` and `scores` is to shift classes to start at 1 in order to distinguish between no-class (0) and class=0 which is now 1.)
-
-Please notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`slice_fn=od.grid.SliceOnlyCenterBbox()`), and the bounding box would specify the center offset and size (`'bboxes': od.grid.SetCenterSizeBboxesOnce()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations it touches, and the bounding box would be set relative (as in the previous code).
-
-Furthermore, we could have produced multiple grids -- this is useful for two types of models: (i) [YOLOv3](https://arxiv.org/abs/1804.02767) where each grid has differing anchors, (ii) [FCOS](https://arxiv.org/abs/1904.01355) where each grid has a different resolution. For that purpose, you could simply apply different grid outputs. You may take advantage of the filtering function to select objects according to your anchors or according to the grid-scale where they fit.
+Naturally, the number of bounding boxes varies for each image, therefore they cannot be turned into tensors, so we need to specify a `collate` function for how the batches should be created.
 
 ```python
-transform = od.aug.Compose(
-    od.aug.Resize(256, 256),
-    od.grid.Transform(grid_size1, filter_function1, slicing_function1, create_grids1, map_grids1)
-    od.grid.Transform(grid_size2, filter_function2, slicing_function2, create_grids2, map_grids2)
-    ...
-)
+tr = torch.utils.data.DataLoader(ds, 16, True, collate_fn=od.data.collate_fn)
 ```
 
-**Model:** As typically done, we split the model into backend and heads. The backend should produce the same number of outputs as the number of grids, and with the same HxW shape. The heads should have the same key as the respective grid.
+**Model:** We used to provide method to create models and training loops. However, as commonly done in PyTorch, it is better if you setup your model and create your own training loop. Here we provide some boiler-plate code of how to do so. We will create the following model.
 
-Our `SimpleBackend()` just applies successive stride-2 convolutions for the same number of times as the given list, and outputs those layers specified as `True`. It's useful for small things, but we recommend using a [pre-trained architecture](https://pytorch.org/vision/stable/models.html) for best performance.
+Notice that, like the object detection models that come with torchvision (see e.g. [FCOS](https://pytorch.org/vision/stable/models/generated/torchvision.models.detection.fcos_resnet50_fpn.html#torchvision.models.detection.fcos_resnet50_fpn)), the behavior of our code changes if in `train` or `eval` mode, but we don't do exactly what they do. In `train` mode, we return the *unprocessed* scores/classes/bboxes grids. In `eval` mode, we return the *processed* classes/bboxes in the form of a list.
+
+![](src/model.svg)
 
 ```python
-backbone = od.models.SimpleBackbone([False]*4 + [True])
-heads = [{'scores': od.models.HeadScores(512), 'classes': od.models.HeadClasses(512, 20), 'bboxes': od.models.HeadExpBboxes(512)}]
-model = od.models.Model(backbone, heads)
-model = model.cuda()
+class MyModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = torchvision.models.vgg16(weights='DEFAULT').features
+        self.scores = torch.nn.Conv2d(512, 1, 1)
+        self.classes = torch.nn.Conv2d(512, 20, 1)
+        self.bboxes = torch.nn.Conv2d(512, 4, 1)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        scores = self.scores(x)
+        classes = self.classes(x)
+        bboxes = self.bboxes(x)
+        if not self.training:
+            # when in evaluation mode, convert the output grid into a list of bboxes/classes
+            scores = torch.sigmoid(scores)
+            hasobjs = scores >= 0.5
+            scores = inv_scores(hasobjs, scores)
+            bboxes = od.grid.inv_offset_logsize_bboxes(hasobjs, bboxes)
+            classes = od.grid.inv_classes(hasobjs, classes)
+            bboxes, classes = od.post.NMS(probs, bboxes, classes)
+            return bboxes, classes
+        return scores, bboxes, classes
 ```
 
-![Model illustration](imgs/model.svg)
-
-**Train:** Our training functions bind data/predictions/losses together using the keys. We must also specify a weight function for each loss so that only when an object exists is the model penalized. For that reason, the loss functions must produce the unaltered result for each grid location (`reduction='none'`).
+**Training:** Again, we no longer provide routines for the training loop. It is better if you create your own. Here is some boiler-plate code.
 
 ```python
-import torch
-tr = torch.utils.data.DataLoader(ds, 32, True, num_workers=6, pin_memory=True)
-opt = torch.optim.Adam(model.parameters())
+model = MyModel().to(device)
+scores_loss = torch.nn.BCEWithLogitsLoss()
+bboxes_loss = torch.nn.MSELoss(reduction='none')
+classes_loss = torch.nn.CrossEntropyLoss(reduction='none')
+optimizer = torch.optim.Adam(model.parameters())
+epochs = 10
 
-weight_loss_fns = {
-    'scores': lambda data: 1,
-    'bboxes': lambda data: data['scores'],
-    'classes': lambda data: data['scores'],
-}
-loss_fns = {
-    'scores': torch.nn.BCEWithLogitsLoss(reduction='none'),
-    'classes': torch.nn.CrossEntropyLoss(reduction='none'),
-    'bboxes':  od.losses.ConvertRel2Abs(od.losses.GIoU(False)),
-}
+model.train()
+for epoch in range(epochs):
+    avg_loss = 0
+    for imgs, targets in tqdm(tr, leave=False):
+        imgs = imgs.to(device)
+        preds_scores, preds_bboxes, preds_classes = model(imgs)
 
-od.loop.train(tr, model, opt, weight_loss_fns, loss_fns, 100)
+        slices = od.grid.slices_center_locations(8, 8, targets['bboxes'])
+        scores = od.grid.scores(8, 8, slices).to(device)
+        bboxes = od.grid.offset_logsize_bboxes(8, 8, slices, targets['bboxes']).to(device)
+        classes = od.grid.classes(8, 8, slices, targets['classes']).to(device)
+
+        loss_value = \
+            scores_loss(preds_scores, scores) + \
+            (scores * bboxes_loss(preds_bboxes, bboxes)).mean() + \
+            (scores * classes_loss(preds_classes, classes)).mean()
+        optimizer.zero_grad()
+        loss_value.backward()
+        optimizer.step()
+        avg_loss += float(loss_value) / len(tr)
+    print(f'Epoch {epoch+1}/{epochs} - Avg loss: {avg_loss}')
 ```
 
-(In this specific case, we have applied a conversion on the bounding boxes because `GIoU` requires absolute bounding boxes and we are predicting bounding boxes relative to each location.)
+**Grid:** When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). You can do so during the data augmentation pipeline (which takes advantage of the DataLoader parallelization), but it might be simpler to do so inside the training loop (see the code above).
 
-**Evaluation:** Firstly, grids produced by the model must be inverted. For that several methods are provided (`inv_grid`). Furthermore, a filter function must be provided to choose which objects are to be selected (typically, those with P≥0.5).
+Notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`slices_center_locations()`), and the bounding box would specify the center offset and log-size (`offset_logsize_bboxes()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations it touches (`slices_all_locations()`), and the bounding box would be set relative (`inv_offset_logsize_bboxes()`).
 
-```python
-inv_transforms = od.inv_grid.InvTransform(
-    lambda datum: datum['scores'][0] >= 0.5,
-    {'scores': od.inv_grid.InvScoresWithClasses('classes'), 'classes': od.inv_grid.InvClasses(), 'bboxes': od.inv_grid.InvRelBboxes()},
-    True
-)
-```
-
-Akin to the training loop, there is an evaluation loop, which simply concatenates all the data and predictions into two lists. We can also apply the popular [NMS](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c) post-processing algorithm.
-
-```python
-inputs, outputs = od.loop.eval(tr, model, inv_transforms)
-outputs = od.post.NMS(outputs, 0.5)
-```
-
-We may now use metrics or visualize the results. You may want to apply non-maximum suppression for best results, especially when using such generous slicing as we have used here.
-
-```python
-import numpy as np
-i = np.random.choice(len(outputs))
-plt.imshow(inputs[i]['image'])
-inv_outputs = od.post.NMS(inv_transforms([outputs[i]]))[0]
-od.plot.bboxes(inputs[i]['image'], inv_outputs[i]['bboxes'])
-od.plot.classes(inputs[i]['image'], inv_outputs[i]['bboxes'], inv_outputs[i]['classes'], od.data.VOCDetection.labels)
-plt.show()
-```
-
-![Model output example](imgs/output.png)
-
-The result is not very good because we are using a very crude backbone. Furthermore, losses could be improved, e.g. using focal sigmoid loss like RetinaNet instead of BCE, or predicting "centerness" like FCOS, amongst other possible optimizations. Not to mention anchors and multi-scale grids.
-
-When using multiple grids, then the method `od.inv_grid.MultiLevelInvTransform()` should be used where dependencies are specified on what multiple grids should be used to produce the final grid (e.g., `dependencies={'bboxes': ['bboxes1', 'bboxes2', ...]}`.
-
-```python
-inv_inputs = inv_transforms(inputs)
-inv_outputs = od.post.NMS(inv_transforms(outputs))
-precision, recall = od.metrics.precision_recall_curve(inv_outputs, inv_inputs, 0.5)
-plt.plot(precision, recall)
-plt.show()
-```
-
-![Precision-recall curve](imgs/precision-recall-curve.png)
+**Evaluation:** For evaluation purposes, we provide several metrics: the precision-recall curve, AP, mAP. These are mainly provided for educational purposes. You may want to consider using the [TorchMetrics package](https://torchmetrics.readthedocs.io/en/stable/).
 
 ## Citation
 

@@ -19,15 +19,43 @@ def same(bi, bj):
     union = (bi[2]-bi[0])*(bi[3]-bi[1]) + (bj[2]-bj[0])*(bj[3]-bj[1]) - intersection
     return intersection / union
 
-def NMS(data, lambda_nms=0.5):
-    '''Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes. The `data` parameter is a list of dictionaries (i.e. `[{'scores': [0.1, 0.9], 'bboxes': [...]}])`. Notice this modifies your data in-place.'''
-    ret = [None] * len(data)
-    for di, datum in enumerate(data):
-        ix = [i for i in range(len(datum['scores']))
+def NMS(list_scores, list_bboxes, *list_others, lambda_nms=0.5):
+    '''Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes.'''
+    ret = [[] for _ in range(1+len(list_others))]
+    for li, (scores, bboxes) in enumerate(zip(list_scores, list_bboxes)):
+        ix = torch.tensor([i for i in range(len(bboxes))
             if not any(  # discard if all conditions met
                 i != j and
-                datum['scores'][j] > datum['scores'][i] and
-                same(datum['bboxes'][i], datum['bboxes'][j]) >= lambda_nms
-            for j in range(len(datum['scores'])))]
-        ret[di] = {k: v[ix] for k, v in datum.items()}
+                scores[j] > scores[i] and
+                same(bboxes[i], bboxes[j]) >= lambda_nms
+                for j in range(len(bboxes)))])
+        ret[0].append(bboxes[ix])
+        for k, others in enumerate(list_others):
+            ret[1+k].append(others[li][ix])
     return ret
+
+if __name__ == '__main__':  # DEBUG
+    import matplotlib.pyplot as plt
+    import data, aug, plot
+    ds = data.VOCDetection('/data', 'train', aug.Resize(256, 256))
+    imgs = [ds[i]['image'] for i in range(4)]
+    scores = [torch.rand(len(ds[i]['bboxes'])*3) for i in range(4)]
+    bboxes = [[bbox+(torch.rand(4)-0.5)*0.05 for bbox in ds[i]['bboxes'] for _ in range(3)] for i in range(4)]
+    classes = [[klass for klass in ds[i]['classes'] for _ in range(3)] for i in range(4)]
+    for i in range(4):
+        plt.subplot(2, 2, i+1)
+        plot.image(imgs[i])
+        plot.bboxes(imgs[i], bboxes[i])
+        plot.classes(imgs[i], bboxes[i], classes[i])
+    plt.suptitle('Before NMS')
+    plt.show()
+    bboxes = [torch.stack(bb) for bb in bboxes]
+    classes = [torch.tensor(kk) for kk in classes]
+    bboxes, classes = NMS(scores, bboxes, classes)
+    for i in range(4):
+        plt.subplot(2, 2, i+1)
+        plot.image(imgs[i])
+        plot.bboxes(imgs[i], bboxes[i])
+        plot.classes(imgs[i], bboxes[i], classes[i])
+    plt.suptitle('After NMS')
+    plt.show()

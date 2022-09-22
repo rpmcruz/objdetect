@@ -13,8 +13,17 @@ def Compose(transformations):
         return data
     return f
 
+def ImageNetNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    '''Normalizes images: (image-mean)/std. It assumes the image is already [0,1]. '''
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
+    def f(image, **data):
+        image = (image - mean) / std
+        return {'image': image, **data}
+    return f
+
 def RandomBrightnessContrast(brightness_value, contrast_value):
-    '''Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2].'''
+    '''Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2]. It assumes the images is [0,1]. Run this before any other normalization. '''
     def f(image, **data):
         brightness = 1 - (torch.rand(())*brightness_value - brightness_value/2)
         contrast = torch.rand(())*contrast_value - contrast_value/2
@@ -55,6 +64,18 @@ def RandomHflip():
             bboxes = torch.stack((
                 1-bboxes[:, 2], bboxes[:, 1],
                 1-bboxes[:, 0], bboxes[:, 3],
+            ), -1)
+        return {'image': image, 'bboxes': bboxes, **data}
+    return f
+
+def RandomVflip():
+    '''Random vertical flips.'''
+    def f(image, bboxes, **data):
+        if torch.rand(()) < 0.5:
+            image = TF.vflip(image)
+            bboxes = torch.stack((
+                bboxes[:, 0], 1-bboxes[:, 3],
+                bboxes[:, 2], 1-bboxes[:, 1],
             ), -1)
         return {'image': image, 'bboxes': bboxes, **data}
     return f
