@@ -23,7 +23,7 @@
 </header>
 <section id="section-intro">
 <p>Some common datasets. Each dataset produces a dictionary with the properties relative to each image. Each bbox is a tuple of type (xmin, ymin, xmax, ymax) with each value [0, 1] normalized. Images are also returned as normalized tensors CxHxW.</p>
-<p>Use <code>img_transform</code> for image-unique transformations and <code>dict_transform</code> for transformations that could affect both images and bboxes or possibly other things. We provide <code><a title="aug" href="aug.html">aug</a></code> for such dict transformations, but you may also use the albumentations package.</p>
+<p>Use <code>dict_transform</code> for transformations that could affect both images and bboxes or possibly other things. We provide <code><a title="aug" href="aug.html">aug</a></code> for such dict transformations, but you may also use the albumentations package.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -31,7 +31,7 @@
 <pre><code class="python">&#39;&#39;&#39;
 Some common datasets. Each dataset produces a dictionary with the properties relative to each image. Each bbox is a tuple of type (xmin, ymin, xmax, ymax) with each value [0, 1] normalized. Images are also returned as normalized tensors CxHxW.
 
-Use `img_transform` for image-unique transformations and `dict_transform` for transformations that could affect both images and bboxes or possibly other things. We provide `aug` for such dict transformations, but you may also use the albumentations package.
+Use `dict_transform` for transformations that could affect both images and bboxes or possibly other things. We provide `aug` for such dict transformations, but you may also use the albumentations package.
 &#39;&#39;&#39;
 
 from torch.utils.data import Dataset
@@ -46,9 +46,8 @@ class VOCDetection(datasets.VOCDetection):
 
     labels = [&#39;person&#39;, &#39;bird&#39;, &#39;cat&#39;, &#39;cow&#39;, &#39;dog&#39;, &#39;horse&#39;, &#39;sheep&#39;, &#39;aeroplane&#39;, &#39;bicycle&#39;, &#39;boat&#39;, &#39;bus&#39;, &#39;car&#39;, &#39;motorbike&#39;, &#39;train&#39;, &#39;bottle&#39;, &#39;chair&#39;, &#39;diningtable&#39;, &#39;pottedplant&#39;, &#39;sofa&#39;, &#39;tvmonitor&#39;]
 
-    def __init__(self, root, fold, img_transform, dict_transform, download=False):
+    def __init__(self, root, fold, dict_transform=None, download=False):
         super().__init__(root, image_set=fold, download=download)
-        self.img_transform = img_transform
         self.dict_transform = dict_transform
 
     def __getitem__(self, i):
@@ -60,10 +59,8 @@ class VOCDetection(datasets.VOCDetection):
             float(o[&#39;bndbox&#39;][&#39;ymin&#39;]) / image.shape[1],
             float(o[&#39;bndbox&#39;][&#39;xmax&#39;]) / image.shape[2],
             float(o[&#39;bndbox&#39;][&#39;ymax&#39;]) / image.shape[1],
-        ) for o in objs], dtype=torch.float32)
-        classes = torch.tensor([self.labels.index(o[&#39;name&#39;]) for o in objs], dtype=torch.int64)
-        if self.img_transform:
-            image = self.img_transform(image)
+        ) for o in objs])
+        classes = torch.tensor([self.labels.index(o[&#39;name&#39;]) for o in objs])
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
         if self.dict_transform:
             datum = self.dict_transform(**datum)
@@ -72,9 +69,8 @@ class VOCDetection(datasets.VOCDetection):
 class CocoDetection(Dataset):
     &#39;&#39;&#39;The popular [COCO](https://cocodataset.org/) dataset from Microsoft, which contains 80 classes.&#39;&#39;&#39;
 
-    def __init__(self, images_dir, ann_file, img_transform, dict_transform):
+    def __init__(self, images_dir, ann_file, dict_transform=None):
         self.images_dir = images_dir
-        self.img_transform = img_transform
         self.dict_transform = dict_transform
         self.bboxes = {}
         self.classes = {}
@@ -88,10 +84,10 @@ class CocoDetection(Dataset):
             bbox = ann[&#39;bbox&#39;]
             class_ = self.labels.index(orig_labels[ann[&#39;category_id&#39;]])
             size = sizes[img_id]
-            self.bboxes.setdefault(img_id, []).append(torch.atensor((
+            self.bboxes.setdefault(img_id, []).append((
                 bbox[0]/size[0], bbox[1]/size[1],
                 (bbox[0]+bbox[2])/size[0], (bbox[1]+bbox[3])/size[1]
-            ), torch.float32))
+            ))
             self.classes.setdefault(img_id, []).append(class_)
         self.filenames = {img[&#39;id&#39;]: img[&#39;file_name&#39;] for img in anns[&#39;images&#39;]}
         self.image_ids = list(self.bboxes.keys())
@@ -102,12 +98,10 @@ class CocoDetection(Dataset):
     def __getitem__(self, i):
         img_id = self.image_ids[i]
         img = read_image(os.path.join(self.images_dir, self.filenames[img_id]), ImageReadMode.RGB)/255
-        if self.img_transform:
-            image = self.img_transform(image)
         datum = {
             &#39;image&#39;: img,
-            &#39;bboxes&#39;: self.bboxes[img_id],
-            &#39;classes&#39;: torch.tensor(self.classes[img_id], torch.int64)
+            &#39;bboxes&#39;: torch.tensor(self.bboxes[img_id]),
+            &#39;classes&#39;: torch.tensor(self.classes[img_id])
         }
         if self.dict_transform:
             datum = self.dict_transform(**datum)
@@ -118,9 +112,8 @@ class KITTIDetection(Dataset):
 
     labels = [&#39;Car&#39;, &#39;Cyclist&#39;, &#39;Pedestrian&#39;, &#39;Person_sitting&#39;, &#39;Tram&#39;, &#39;Truck&#39;, &#39;Van&#39;, &#39;Misc&#39;, &#39;DontCare&#39;]
 
-    def __init__(self, root, fold, img_transform, dict_transform, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
+    def __init__(self, root, fold, dict_transform=None, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
         assert fold in (&#39;train&#39;,)
-        self.img_transform = img_transform
         self.dict_transform = dict_transform
         self.labels = [l for l in self.labels if l not in exclude_labels]
         self.root = os.path.join(root, &#39;kitti&#39;, &#39;object&#39;, &#39;training&#39;)
@@ -135,13 +128,11 @@ class KITTIDetection(Dataset):
         image = read_image(os.path.join(self.root, &#39;image_2&#39;, filename))/255
         lines = [l.split() for l in open(os.path.join(self.root, &#39;label_2&#39;, filename[:-3] + &#39;txt&#39;)).readlines()]
         lines = [l for l in lines if l[0] in self.labels]
-        bboxes = torch.array([(
+        bboxes = torch.tensor([(
             float(l[4])/image.shape[2], float(l[5])/image.shape[1],
             float(l[6])/image.shape[2], float(l[7])/image.shape[1]
-        ) for l in lines], torch.float32)
-        classes = torch.array([self.labels.index(l[0]) for l in lines], torch.int64)
-        if self.img_transform:
-            image = self.img_transform(image)
+        ) for l in lines])
+        classes = torch.tensor([self.labels.index(l[0]) for l in lines])
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
         if self.dict_transform:
             datum = self.dict_transform(**datum)
@@ -158,7 +149,12 @@ class FilterClass(Dataset):
         return len(self.ix)
 
     def __getitem__(self, i):
-        return self.ds[self.ix[i]]</code></pre>
+        return self.ds[self.ix[i]]
+
+def collate_fn(batch):
+    imgs = torch.stack([d[&#39;image&#39;] for d in batch])
+    targets = {key: [d[key] for d in batch] for key in batch[0].keys()}
+    return imgs, targets</code></pre>
 </details>
 </section>
 <section>
@@ -166,13 +162,31 @@ class FilterClass(Dataset):
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="data.collate_fn"><code class="name flex">
+<span>def <span class="ident">collate_fn</span></span>(<span>batch)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def collate_fn(batch):
+    imgs = torch.stack([d[&#39;image&#39;] for d in batch])
+    targets = {key: [d[key] for d in batch] for key in batch[0].keys()}
+    return imgs, targets</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
 <dt id="data.CocoDetection"><code class="flex name class">
 <span>class <span class="ident">CocoDetection</span></span>
-<span>(</span><span>images_dir, ann_file, img_transform, dict_transform)</span>
+<span>(</span><span>images_dir, ann_file, dict_transform=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The popular <a href="https://cocodataset.org/">COCO</a> dataset from Microsoft, which contains 80 classes.</p></div>
@@ -183,9 +197,8 @@ class FilterClass(Dataset):
 <pre><code class="python">class CocoDetection(Dataset):
     &#39;&#39;&#39;The popular [COCO](https://cocodataset.org/) dataset from Microsoft, which contains 80 classes.&#39;&#39;&#39;
 
-    def __init__(self, images_dir, ann_file, img_transform, dict_transform):
+    def __init__(self, images_dir, ann_file, dict_transform=None):
         self.images_dir = images_dir
-        self.img_transform = img_transform
         self.dict_transform = dict_transform
         self.bboxes = {}
         self.classes = {}
@@ -199,10 +212,10 @@ class FilterClass(Dataset):
             bbox = ann[&#39;bbox&#39;]
             class_ = self.labels.index(orig_labels[ann[&#39;category_id&#39;]])
             size = sizes[img_id]
-            self.bboxes.setdefault(img_id, []).append(torch.atensor((
+            self.bboxes.setdefault(img_id, []).append((
                 bbox[0]/size[0], bbox[1]/size[1],
                 (bbox[0]+bbox[2])/size[0], (bbox[1]+bbox[3])/size[1]
-            ), torch.float32))
+            ))
             self.classes.setdefault(img_id, []).append(class_)
         self.filenames = {img[&#39;id&#39;]: img[&#39;file_name&#39;] for img in anns[&#39;images&#39;]}
         self.image_ids = list(self.bboxes.keys())
@@ -213,12 +226,10 @@ class FilterClass(Dataset):
     def __getitem__(self, i):
         img_id = self.image_ids[i]
         img = read_image(os.path.join(self.images_dir, self.filenames[img_id]), ImageReadMode.RGB)/255
-        if self.img_transform:
-            image = self.img_transform(image)
         datum = {
             &#39;image&#39;: img,
-            &#39;bboxes&#39;: self.bboxes[img_id],
-            &#39;classes&#39;: torch.tensor(self.classes[img_id], torch.int64)
+            &#39;bboxes&#39;: torch.tensor(self.bboxes[img_id]),
+            &#39;classes&#39;: torch.tensor(self.classes[img_id])
         }
         if self.dict_transform:
             datum = self.dict_transform(**datum)
@@ -261,7 +272,7 @@ class FilterClass(Dataset):
 </dd>
 <dt id="data.KITTIDetection"><code class="flex name class">
 <span>class <span class="ident">KITTIDetection</span></span>
-<span>(</span><span>root, fold, img_transform, dict_transform, exclude_labels={'DontCare', 'Misc'})</span>
+<span>(</span><span>root, fold, dict_transform=None, exclude_labels={'Misc', 'DontCare'})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The <a href="http://www.cvlibs.net/datasets/kitti/">KITTI</a> self-driving dataset.</p></div>
@@ -274,9 +285,8 @@ class FilterClass(Dataset):
 
     labels = [&#39;Car&#39;, &#39;Cyclist&#39;, &#39;Pedestrian&#39;, &#39;Person_sitting&#39;, &#39;Tram&#39;, &#39;Truck&#39;, &#39;Van&#39;, &#39;Misc&#39;, &#39;DontCare&#39;]
 
-    def __init__(self, root, fold, img_transform, dict_transform, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
+    def __init__(self, root, fold, dict_transform=None, exclude_labels={&#39;Misc&#39;, &#39;DontCare&#39;}):
         assert fold in (&#39;train&#39;,)
-        self.img_transform = img_transform
         self.dict_transform = dict_transform
         self.labels = [l for l in self.labels if l not in exclude_labels]
         self.root = os.path.join(root, &#39;kitti&#39;, &#39;object&#39;, &#39;training&#39;)
@@ -291,13 +301,11 @@ class FilterClass(Dataset):
         image = read_image(os.path.join(self.root, &#39;image_2&#39;, filename))/255
         lines = [l.split() for l in open(os.path.join(self.root, &#39;label_2&#39;, filename[:-3] + &#39;txt&#39;)).readlines()]
         lines = [l for l in lines if l[0] in self.labels]
-        bboxes = torch.array([(
+        bboxes = torch.tensor([(
             float(l[4])/image.shape[2], float(l[5])/image.shape[1],
             float(l[6])/image.shape[2], float(l[7])/image.shape[1]
-        ) for l in lines], torch.float32)
-        classes = torch.array([self.labels.index(l[0]) for l in lines], torch.int64)
-        if self.img_transform:
-            image = self.img_transform(image)
+        ) for l in lines])
+        classes = torch.tensor([self.labels.index(l[0]) for l in lines])
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
         if self.dict_transform:
             datum = self.dict_transform(**datum)
@@ -318,7 +326,7 @@ class FilterClass(Dataset):
 </dd>
 <dt id="data.VOCDetection"><code class="flex name class">
 <span>class <span class="ident">VOCDetection</span></span>
-<span>(</span><span>root, fold, img_transform, dict_transform, download=False)</span>
+<span>(</span><span>root, fold, dict_transform=None, download=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The popular <a href="http://host.robots.ox.ac.uk/pascal/VOC/voc2012/">Pascal VOC 2012</a> dataset, which contains 20 classes.</p></div>
@@ -331,9 +339,8 @@ class FilterClass(Dataset):
 
     labels = [&#39;person&#39;, &#39;bird&#39;, &#39;cat&#39;, &#39;cow&#39;, &#39;dog&#39;, &#39;horse&#39;, &#39;sheep&#39;, &#39;aeroplane&#39;, &#39;bicycle&#39;, &#39;boat&#39;, &#39;bus&#39;, &#39;car&#39;, &#39;motorbike&#39;, &#39;train&#39;, &#39;bottle&#39;, &#39;chair&#39;, &#39;diningtable&#39;, &#39;pottedplant&#39;, &#39;sofa&#39;, &#39;tvmonitor&#39;]
 
-    def __init__(self, root, fold, img_transform, dict_transform, download=False):
+    def __init__(self, root, fold, dict_transform=None, download=False):
         super().__init__(root, image_set=fold, download=download)
-        self.img_transform = img_transform
         self.dict_transform = dict_transform
 
     def __getitem__(self, i):
@@ -345,10 +352,8 @@ class FilterClass(Dataset):
             float(o[&#39;bndbox&#39;][&#39;ymin&#39;]) / image.shape[1],
             float(o[&#39;bndbox&#39;][&#39;xmax&#39;]) / image.shape[2],
             float(o[&#39;bndbox&#39;][&#39;ymax&#39;]) / image.shape[1],
-        ) for o in objs], dtype=torch.float32)
-        classes = torch.tensor([self.labels.index(o[&#39;name&#39;]) for o in objs], dtype=torch.int64)
-        if self.img_transform:
-            image = self.img_transform(image)
+        ) for o in objs])
+        classes = torch.tensor([self.labels.index(o[&#39;name&#39;]) for o in objs])
         datum = {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, &#39;classes&#39;: classes}
         if self.dict_transform:
             datum = self.dict_transform(**datum)
@@ -379,6 +384,11 @@ class FilterClass(Dataset):
 <ul></ul>
 </div>
 <ul id="index">
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="data.collate_fn" href="#data.collate_fn">collate_fn</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>

@@ -23,12 +23,13 @@ def NMS(list_scores, list_bboxes, *list_others, lambda_nms=0.5):
     '''Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes.'''
     ret = [[] for _ in range(1+len(list_others))]
     for li, (scores, bboxes) in enumerate(zip(list_scores, list_bboxes)):
-        ix = torch.tensor([i for i in range(len(bboxes))
-            if not any(  # discard if all conditions met
+        ix = torch.tensor([
+            not any(  # discard if all conditions met
                 i != j and
                 scores[j] > scores[i] and
                 same(bboxes[i], bboxes[j]) >= lambda_nms
-                for j in range(len(bboxes)))])
+                for j in range(len(bboxes)))
+            for i in range(len(bboxes))], dtype=bool)
         ret[0].append(bboxes[ix])
         for k, others in enumerate(list_others):
             ret[1+k].append(others[li][ix])

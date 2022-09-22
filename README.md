@@ -112,12 +112,14 @@ class MyModel(torch.nn.Module):
             scores = inv_scores(hasobjs, scores)
             bboxes = od.grid.inv_offset_logsize_bboxes(hasobjs, bboxes)
             classes = od.grid.inv_classes(hasobjs, classes)
-            bboxes, classes = od.post.NMS(probs, bboxes, classes)
+            bboxes, classes = od.post.NMS(scores, bboxes, classes)
             return bboxes, classes
         return scores, bboxes, classes
 ```
 
 **Training:** Again, we no longer provide routines for the training loop. It is better if you create your own. Here is some boiler-plate code.
+
+Notice that `reduction='none'`. This is very important so that we obtain loss per location and can then multiply by whether there is an object on that location (1) or not (0). That way, we do not penalize the network for making predictions when no object exists on the location.
 
 ```python
 model = MyModel().to(device)

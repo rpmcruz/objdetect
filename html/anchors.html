@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>post API documentation</title>
-<meta name="description" content="Post-processing techniques to reduce the amount of superfluous bounding boxes." />
+<title>anchors API documentation</title>
+<meta name="description" content="Anchor related methods." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -19,76 +19,35 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>post</code></h1>
+<h1 class="title">Module <code>anchors</code></h1>
 </header>
 <section id="section-intro">
-<p>Post-processing techniques to reduce the amount of superfluous bounding boxes.</p>
+<p>Anchor related methods.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#39;&#39;&#39;
-Post-processing techniques to reduce the amount of superfluous bounding boxes.
+Anchor related methods.
 &#39;&#39;&#39;
 
-import torch
+def compute_anchors(ds, n):
+    &#39;&#39;&#39;Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.&#39;&#39;&#39;
+    from sklearn.cluster import KMeans
+    BB = [d[&#39;bboxes&#39;] for d in ds]
+    BB = [(b[2], b[3]) for bb in BB for b in bb]
+    return KMeans(n).fit(BB).cluster_centers_
 
-def valid_bboxes(bboxes):
-    &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
-    return torch.stack((
-        torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
-        torch.clamp(torch.minimum(bboxes[:, 1], bboxes[:, 3]), min=0),
-        torch.clamp(torch.maximum(bboxes[:, 0], bboxes[:, 2]), max=1),
-        torch.clamp(torch.maximum(bboxes[:, 1], bboxes[:, 3]), max=1),
-    ), 1)
-
-def same(bi, bj):
-    &#39;&#39;&#39;Intersection over union utility.&#39;&#39;&#39;
-    intersection = (min(bi[2], bj[2])-max(bi[0], bj[0])) * (min(bi[3], bj[3])-max(bi[1], bj[1]))
-    union = (bi[2]-bi[0])*(bi[3]-bi[1]) + (bj[2]-bj[0])*(bj[3]-bj[1]) - intersection
-    return intersection / union
-
-def NMS(list_scores, list_bboxes, *list_others, lambda_nms=0.5):
-    &#39;&#39;&#39;Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes.&#39;&#39;&#39;
-    ret = [[] for _ in range(1+len(list_others))]
-    for li, (scores, bboxes) in enumerate(zip(list_scores, list_bboxes)):
-        ix = torch.tensor([
-            not any(  # discard if all conditions met
-                i != j and
-                scores[j] &gt; scores[i] and
-                same(bboxes[i], bboxes[j]) &gt;= lambda_nms
-                for j in range(len(bboxes)))
-            for i in range(len(bboxes))], dtype=bool)
-        ret[0].append(bboxes[ix])
-        for k, others in enumerate(list_others):
-            ret[1+k].append(others[li][ix])
-    return ret
-
-if __name__ == &#39;__main__&#39;:  # DEBUG
-    import matplotlib.pyplot as plt
-    import data, aug, plot
-    ds = data.VOCDetection(&#39;/data&#39;, &#39;train&#39;, aug.Resize(256, 256))
-    imgs = [ds[i][&#39;image&#39;] for i in range(4)]
-    scores = [torch.rand(len(ds[i][&#39;bboxes&#39;])*3) for i in range(4)]
-    bboxes = [[bbox+(torch.rand(4)-0.5)*0.05 for bbox in ds[i][&#39;bboxes&#39;] for _ in range(3)] for i in range(4)]
-    classes = [[klass for klass in ds[i][&#39;classes&#39;] for _ in range(3)] for i in range(4)]
-    for i in range(4):
-        plt.subplot(2, 2, i+1)
-        plot.image(imgs[i])
-        plot.bboxes(imgs[i], bboxes[i])
-        plot.classes(imgs[i], bboxes[i], classes[i])
-    plt.suptitle(&#39;Before NMS&#39;)
-    plt.show()
-    bboxes = [torch.stack(bb) for bb in bboxes]
-    classes = [torch.tensor(kk) for kk in classes]
-    bboxes, classes = NMS(scores, bboxes, classes)
-    for i in range(4):
-        plt.subplot(2, 2, i+1)
-        plot.image(imgs[i])
-        plot.bboxes(imgs[i], bboxes[i])
-        plot.classes(imgs[i], bboxes[i], classes[i])
-    plt.suptitle(&#39;After NMS&#39;)
-    plt.show()</code></pre>
+def fits_anchor(anchor, min_iou, bboxes):
+    &#39;&#39;&#39;Returns true to any bboxes that fit the anchor (i.e., with iou ≥ min_iou).&#39;&#39;&#39;
+    from . import metrics
+    def f(bbox):
+        xc = (bbox[0]+bbox[2]) / 2
+        yc = (bbox[1]+bbox[3]) / 2
+        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
+            xc+anchor[0]/2, yc+anchor[1]/2)
+        return metrics.IoU(bbox, anchor_box) &gt;= min_iou
+    return [f(bbox) for bbox in bboxes]</code></pre>
 </details>
 </section>
 <section>
@@ -98,65 +57,42 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="post.NMS"><code class="name flex">
-<span>def <span class="ident">NMS</span></span>(<span>list_scores, list_bboxes, *list_others, lambda_nms=0.5)</span>
+<dt id="anchors.compute_anchors"><code class="name flex">
+<span>def <span class="ident">compute_anchors</span></span>(<span>ds, n)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes.</p></div>
+<div class="desc"><p>Uses K-Means to produce the top-<code>n</code> sizes for the given dataset <code>ds</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def NMS(list_scores, list_bboxes, *list_others, lambda_nms=0.5):
-    &#39;&#39;&#39;Non-Maximum Suppression (NMS) algorithm. It is a popular post-processing algorithm to clean-up similar bounding boxes.&#39;&#39;&#39;
-    ret = [[] for _ in range(1+len(list_others))]
-    for li, (scores, bboxes) in enumerate(zip(list_scores, list_bboxes)):
-        ix = torch.tensor([
-            not any(  # discard if all conditions met
-                i != j and
-                scores[j] &gt; scores[i] and
-                same(bboxes[i], bboxes[j]) &gt;= lambda_nms
-                for j in range(len(bboxes)))
-            for i in range(len(bboxes))], dtype=bool)
-        ret[0].append(bboxes[ix])
-        for k, others in enumerate(list_others):
-            ret[1+k].append(others[li][ix])
-    return ret</code></pre>
+<pre><code class="python">def compute_anchors(ds, n):
+    &#39;&#39;&#39;Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.&#39;&#39;&#39;
+    from sklearn.cluster import KMeans
+    BB = [d[&#39;bboxes&#39;] for d in ds]
+    BB = [(b[2], b[3]) for bb in BB for b in bb]
+    return KMeans(n).fit(BB).cluster_centers_</code></pre>
 </details>
 </dd>
-<dt id="post.same"><code class="name flex">
-<span>def <span class="ident">same</span></span>(<span>bi, bj)</span>
+<dt id="anchors.fits_anchor"><code class="name flex">
+<span>def <span class="ident">fits_anchor</span></span>(<span>anchor, min_iou, bboxes)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Intersection over union utility.</p></div>
+<div class="desc"><p>Returns true to any bboxes that fit the anchor (i.e., with iou ≥ min_iou).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def same(bi, bj):
-    &#39;&#39;&#39;Intersection over union utility.&#39;&#39;&#39;
-    intersection = (min(bi[2], bj[2])-max(bi[0], bj[0])) * (min(bi[3], bj[3])-max(bi[1], bj[1]))
-    union = (bi[2]-bi[0])*(bi[3]-bi[1]) + (bj[2]-bj[0])*(bj[3]-bj[1]) - intersection
-    return intersection / union</code></pre>
-</details>
-</dd>
-<dt id="post.valid_bboxes"><code class="name flex">
-<span>def <span class="ident">valid_bboxes</span></span>(<span>bboxes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def valid_bboxes(bboxes):
-    &#39;&#39;&#39;Converts the given bounding boxes into valid ones. That is, x2/y2 is swapped by x1/y1 if x2&lt;x1 or y2&lt;y1.&#39;&#39;&#39;
-    return torch.stack((
-        torch.clamp(torch.minimum(bboxes[:, 0], bboxes[:, 2]), min=0),
-        torch.clamp(torch.minimum(bboxes[:, 1], bboxes[:, 3]), min=0),
-        torch.clamp(torch.maximum(bboxes[:, 0], bboxes[:, 2]), max=1),
-        torch.clamp(torch.maximum(bboxes[:, 1], bboxes[:, 3]), max=1),
-    ), 1)</code></pre>
+<pre><code class="python">def fits_anchor(anchor, min_iou, bboxes):
+    &#39;&#39;&#39;Returns true to any bboxes that fit the anchor (i.e., with iou ≥ min_iou).&#39;&#39;&#39;
+    from . import metrics
+    def f(bbox):
+        xc = (bbox[0]+bbox[2]) / 2
+        yc = (bbox[1]+bbox[3]) / 2
+        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
+            xc+anchor[0]/2, yc+anchor[1]/2)
+        return metrics.IoU(bbox, anchor_box) &gt;= min_iou
+    return [f(bbox) for bbox in bboxes]</code></pre>
 </details>
 </dd>
 </dl>
@@ -172,9 +108,8 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="post.NMS" href="#post.NMS">NMS</a></code></li>
-<li><code><a title="post.same" href="#post.same">same</a></code></li>
-<li><code><a title="post.valid_bboxes" href="#post.valid_bboxes">valid_bboxes</a></code></li>
+<li><code><a title="anchors.compute_anchors" href="#anchors.compute_anchors">compute_anchors</a></code></li>
+<li><code><a title="anchors.fits_anchor" href="#anchors.fits_anchor">fits_anchor</a></code></li>
 </ul>
 </li>
 </ul>

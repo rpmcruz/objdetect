@@ -20,7 +20,7 @@ def slices_all_locations(h, w, batch_bboxes):
 def scores(h, w, batch_slices, device=None):
     '''Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.'''
     n = len(batch_slices)
-    grid = torch.zeros((n, 1, h, w), dtype=torch.float32, device=device, device=device)
+    grid = torch.zeros((n, 1, h, w), dtype=torch.float32, device=device)
     for i, slices in enumerate(batch_slices):
         for yy, xx in slices:
             grid[i, :, yy, xx] = 1
@@ -29,7 +29,7 @@ def scores(h, w, batch_slices, device=None):
 def inv_scores(hasobjs, scores):
     '''Invert the grid created by the function with the same name.'''
     assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
-    return scores[hasobjs]
+    return [ss[h] for h, ss in zip(hasobjs, scores)]
 
 def offset_logsize_bboxes(h, w, batch_slices, batch_bboxes, device=None):
     '''Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations.'''
@@ -98,7 +98,7 @@ def classes(h, w, batch_slices, batch_classes, device=None):
 def inv_classes(hasobjs, classes):
     '''Invert the grid created by the function with the same name.'''
     assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
-    return [kk[h[0]] for h, kk in zip(hasobjs, classes)]
+    return [kk.argmax(0)[h[0]] if len(kk.shape) == 3 else kk[h[0]] for h, kk in zip(hasobjs, classes)]
 
 if __name__ == '__main__':  # DEBUG
     import matplotlib.pyplot as plt

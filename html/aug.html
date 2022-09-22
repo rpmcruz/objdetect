@@ -42,8 +42,22 @@ def Compose(transformations):
         return data
     return f
 
+def ImageNetNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    &#39;&#39;&#39;Normalizes images: (image-mean)/std. It assumes the image is already [0,1]. &#39;&#39;&#39;
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
+    def f(image, **data):
+        image = (image - mean) / std
+        return {&#39;image&#39;: image, **data}
+    return f
+
+def inv_imagenet_normalize(img, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
+    return img*std + mean
+
 def RandomBrightnessContrast(brightness_value, contrast_value):
-    &#39;&#39;&#39;Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2].&#39;&#39;&#39;
+    &#39;&#39;&#39;Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2]. It assumes the images is [0,1]. Run this before any other normalization. &#39;&#39;&#39;
     def f(image, **data):
         brightness = 1 - (torch.rand(())*brightness_value - brightness_value/2)
         contrast = torch.rand(())*contrast_value - contrast_value/2
@@ -88,6 +102,18 @@ def RandomHflip():
         return {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, **data}
     return f
 
+def RandomVflip():
+    &#39;&#39;&#39;Random vertical flips.&#39;&#39;&#39;
+    def f(image, bboxes, **data):
+        if torch.rand(()) &lt; 0.5:
+            image = TF.vflip(image)
+            bboxes = torch.stack((
+                bboxes[:, 0], 1-bboxes[:, 3],
+                bboxes[:, 2], 1-bboxes[:, 1],
+            ), -1)
+        return {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, **data}
+    return f
+
 def SortBboxesByArea(descending=True):
     &#39;&#39;&#39;Some papers like FCOS assign the smaller bbox on location ambiguities. We can reproduce that by simply ordering the bboxes.&#39;&#39;&#39;
     def f(bboxes, **data):
@@ -123,17 +149,36 @@ def SortBboxesByArea(descending=True):
     return f</code></pre>
 </details>
 </dd>
+<dt id="aug.ImageNetNormalize"><code class="name flex">
+<span>def <span class="ident">ImageNetNormalize</span></span>(<span>mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Normalizes images: (image-mean)/std. It assumes the image is already [0,1].</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ImageNetNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    &#39;&#39;&#39;Normalizes images: (image-mean)/std. It assumes the image is already [0,1]. &#39;&#39;&#39;
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
+    def f(image, **data):
+        image = (image - mean) / std
+        return {&#39;image&#39;: image, **data}
+    return f</code></pre>
+</details>
+</dd>
 <dt id="aug.RandomBrightnessContrast"><code class="name flex">
 <span>def <span class="ident">RandomBrightnessContrast</span></span>(<span>brightness_value, contrast_value)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2].</p></div>
+<div class="desc"><p>Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2]. It assumes the images is [0,1]. Run this before any other normalization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def RandomBrightnessContrast(brightness_value, contrast_value):
-    &#39;&#39;&#39;Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2].&#39;&#39;&#39;
+    &#39;&#39;&#39;Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2]. It assumes the images is [0,1]. Run this before any other normalization. &#39;&#39;&#39;
     def f(image, **data):
         brightness = 1 - (torch.rand(())*brightness_value - brightness_value/2)
         contrast = torch.rand(())*contrast_value - contrast_value/2
@@ -192,6 +237,28 @@ def SortBboxesByArea(descending=True):
     return f</code></pre>
 </details>
 </dd>
+<dt id="aug.RandomVflip"><code class="name flex">
+<span>def <span class="ident">RandomVflip</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Random vertical flips.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def RandomVflip():
+    &#39;&#39;&#39;Random vertical flips.&#39;&#39;&#39;
+    def f(image, bboxes, **data):
+        if torch.rand(()) &lt; 0.5:
+            image = TF.vflip(image)
+            bboxes = torch.stack((
+                bboxes[:, 0], 1-bboxes[:, 3],
+                bboxes[:, 2], 1-bboxes[:, 1],
+            ), -1)
+        return {&#39;image&#39;: image, &#39;bboxes&#39;: bboxes, **data}
+    return f</code></pre>
+</details>
+</dd>
 <dt id="aug.Resize"><code class="name flex">
 <span>def <span class="ident">Resize</span></span>(<span>H, W)</span>
 </code></dt>
@@ -228,6 +295,21 @@ def SortBboxesByArea(descending=True):
     return f</code></pre>
 </details>
 </dd>
+<dt id="aug.inv_imagenet_normalize"><code class="name flex">
+<span>def <span class="ident">inv_imagenet_normalize</span></span>(<span>img, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def inv_imagenet_normalize(img, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
+    return img*std + mean</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -242,11 +324,14 @@ def SortBboxesByArea(descending=True):
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="aug.Compose" href="#aug.Compose">Compose</a></code></li>
+<li><code><a title="aug.ImageNetNormalize" href="#aug.ImageNetNormalize">ImageNetNormalize</a></code></li>
 <li><code><a title="aug.RandomBrightnessContrast" href="#aug.RandomBrightnessContrast">RandomBrightnessContrast</a></code></li>
 <li><code><a title="aug.RandomCrop" href="#aug.RandomCrop">RandomCrop</a></code></li>
 <li><code><a title="aug.RandomHflip" href="#aug.RandomHflip">RandomHflip</a></code></li>
+<li><code><a title="aug.RandomVflip" href="#aug.RandomVflip">RandomVflip</a></code></li>
 <li><code><a title="aug.Resize" href="#aug.Resize">Resize</a></code></li>
 <li><code><a title="aug.SortBboxesByArea" href="#aug.SortBboxesByArea">SortBboxesByArea</a></code></li>
+<li><code><a title="aug.inv_imagenet_normalize" href="#aug.inv_imagenet_normalize">inv_imagenet_normalize</a></code></li>
 </ul>
 </li>
 </ul>

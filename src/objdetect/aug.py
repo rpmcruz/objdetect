@@ -22,6 +22,11 @@ def ImageNetNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
         return {'image': image, **data}
     return f
 
+def inv_imagenet_normalize(img, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
+    return img*std + mean
+
 def RandomBrightnessContrast(brightness_value, contrast_value):
     '''Randomly applies brightness (product) or contrast (addition) to the image. A random value is sampled from [-v/2, v/2]. It assumes the images is [0,1]. Run this before any other normalization. '''
     def f(image, **data):

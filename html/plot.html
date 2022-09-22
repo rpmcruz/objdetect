@@ -36,26 +36,6 @@ from matplotlib import lines, patches, colors
 import numpy as np
 from torchvision.transforms.functional import resize, InterpolationMode
 
-def grid_lines(image, h, w):
-    &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
-    _, H, W = image.shape
-    plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, lw=1)
-    plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, lw=1)
-
-def grid_bools(image, grid):
-    &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
-    assert len(grid.shape) == 2
-    _, H, W = image.shape
-    plt.imshow(np.ones((H, W)), alpha=0.5*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))
-
-def grid_text(image, grid):
-    &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
-    _, H, W = image.shape
-    h, w = grid.shape
-    for y in range(h):
-        for x in range(w):
-            plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(grid[y, x]), c=&#39;blue&#39;)
-
 def image(image):
     &#39;&#39;&#39;Calls `plt.imshow()` with channels permutted CxHxW =&gt; HxWxC.&#39;&#39;&#39;
     plt.imshow(image.permute((1, 2, 0)))
@@ -68,16 +48,39 @@ def bboxes(image, bboxes, ec=&#39;blue&#39;, ls=&#39;-&#39;):
             (xmin*W, ymin*H), (xmax-xmin)*W, (ymax-ymin)*H,
             lw=2, ls=ls, ec=ec, fc=&#39;none&#39;))
 
-def classes(image, bboxes, classes, labels=None):
+def classes(image, bboxes, classes, labels=None, c=&#39;blue&#39;):
     &#39;&#39;&#39;Draws a list of classes captions above the bounding box. If a `labels` list is provided then the respective label will be drawn, rather than the integer.&#39;&#39;&#39;
     _, H, W = image.shape
     for (xmin, ymin, xmax, ymax), klass in zip(bboxes, classes):
         s = labels[klass] if labels else klass
-        plt.text(xmin*W, ymin*H, s)
+        plt.text(xmin*W, ymin*H, s, c=c)
 
 def show():
     &#39;&#39;&#39;Convenience method. Just call `plt.show()`.&#39;&#39;&#39;
-    plt.show()</code></pre>
+    plt.show()
+
+# The following methods are typically used for debugging or illustrative purposes.
+
+def grid_lines(image, h, w):
+    &#39;&#39;&#39;Draws grid lines.&#39;&#39;&#39;
+    _, H, W = image.shape
+    plt.vlines(np.linspace(0, W, w+1), 0, H, color=&#39;gray&#39;, lw=1)
+    plt.hlines(np.linspace(0, H, h+1), 0, W, color=&#39;gray&#39;, lw=1)
+
+def grid_bools(image, grid):
+    &#39;&#39;&#39;Draws a grid boolean matrix, such as the scores grid.&#39;&#39;&#39;
+    assert len(grid.shape) == 2
+    _, H, W = image.shape
+    plt.imshow(np.ones((H, W)), alpha=0.5*resize(grid[None], (H, W), InterpolationMode.NEAREST)[0], cmap=colors.ListedColormap([&#39;green&#39;]))
+
+def grid_text(image, grid, convert_fn=None):
+    &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
+    _, H, W = image.shape
+    h, w = grid.shape
+    convert_fn = convert_fn if convert_fn else lambda x: x
+    for y in range(h):
+        for x in range(w):
+            plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(convert_fn(grid[y, x])), c=&#39;blue&#39;, ha=&#39;center&#39;, va=&#39;center&#39;)</code></pre>
 </details>
 </section>
 <section>
@@ -106,7 +109,7 @@ def show():
 </details>
 </dd>
 <dt id="plot.classes"><code class="name flex">
-<span>def <span class="ident">classes</span></span>(<span>image, bboxes, classes, labels=None)</span>
+<span>def <span class="ident">classes</span></span>(<span>image, bboxes, classes, labels=None, c='blue')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Draws a list of classes captions above the bounding box. If a <code>labels</code> list is provided then the respective label will be drawn, rather than the integer.</p></div>
@@ -114,12 +117,12 @@ def show():
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def classes(image, bboxes, classes, labels=None):
+<pre><code class="python">def classes(image, bboxes, classes, labels=None, c=&#39;blue&#39;):
     &#39;&#39;&#39;Draws a list of classes captions above the bounding box. If a `labels` list is provided then the respective label will be drawn, rather than the integer.&#39;&#39;&#39;
     _, H, W = image.shape
     for (xmin, ymin, xmax, ymax), klass in zip(bboxes, classes):
         s = labels[klass] if labels else klass
-        plt.text(xmin*W, ymin*H, s)</code></pre>
+        plt.text(xmin*W, ymin*H, s, c=c)</code></pre>
 </details>
 </dd>
 <dt id="plot.grid_bools"><code class="name flex">
@@ -155,7 +158,7 @@ def show():
 </details>
 </dd>
 <dt id="plot.grid_text"><code class="name flex">
-<span>def <span class="ident">grid_text</span></span>(<span>image, grid)</span>
+<span>def <span class="ident">grid_text</span></span>(<span>image, grid, convert_fn=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Draws a grid matrix of values, such as the classes grid.</p></div>
@@ -163,13 +166,14 @@ def show():
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grid_text(image, grid):
+<pre><code class="python">def grid_text(image, grid, convert_fn=None):
     &#39;&#39;&#39;Draws a grid matrix of values, such as the classes grid.&#39;&#39;&#39;
     _, H, W = image.shape
     h, w = grid.shape
+    convert_fn = convert_fn if convert_fn else lambda x: x
     for y in range(h):
         for x in range(w):
-            plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(grid[y, x]), c=&#39;blue&#39;)</code></pre>
+            plt.text((x+0.5)*W/w, (y+0.5)*H/h, str(convert_fn(grid[y, x])), c=&#39;blue&#39;, ha=&#39;center&#39;, va=&#39;center&#39;)</code></pre>
 </details>
 </dd>
 <dt id="plot.image"><code class="name flex">
