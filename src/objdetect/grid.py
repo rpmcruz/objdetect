@@ -17,10 +17,10 @@ def slices_all_locations(h, w, batch_bboxes):
         slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w))),
     ) for bbox in bboxes] for bboxes in batch_bboxes]
 
-def scores(h, w, batch_slices):
+def scores(h, w, batch_slices, device=None):
     '''Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.'''
     n = len(batch_slices)
-    grid = torch.zeros((n, 1, h, w), dtype=torch.float32)
+    grid = torch.zeros((n, 1, h, w), dtype=torch.float32, device=device, device=device)
     for i, slices in enumerate(batch_slices):
         for yy, xx in slices:
             grid[i, :, yy, xx] = 1
@@ -31,10 +31,10 @@ def inv_scores(hasobjs, scores):
     assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
     return scores[hasobjs]
 
-def offset_logsize_bboxes(h, w, batch_slices, batch_bboxes):
+def offset_logsize_bboxes(h, w, batch_slices, batch_bboxes, device=None):
     '''Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations.'''
     n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32)
+    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
     for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
         for (yy, xx), bbox in zip(slices, bboxes):
             xc = (bbox[0]+bbox[2])/2
@@ -49,8 +49,8 @@ def inv_offset_logsize_bboxes(hasobjs, bboxes):
     '''Invert the grid created by the function with the same name.'''
     assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
     n, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32)[:, None]
+    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
+    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
     xc = (xx+bboxes[:, 0])/w
     yc = (yy+bboxes[:, 1])/h
     bw = torch.exp(bboxes[:, 2])
@@ -60,14 +60,14 @@ def inv_offset_logsize_bboxes(hasobjs, bboxes):
     ), -1)
     return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
 
-def relative_bboxes(h, w, batch_slices, batch_bboxes):
+def relative_bboxes(h, w, batch_slices, batch_bboxes, device=None):
     '''For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
     n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32)
+    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
     for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
         for (yy, xx), bbox in zip(slices, bboxes):
-            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32)[None, :]
-            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32)[:, None]
+            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32, device=device)[None, :]
+            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32, device=device)[:, None]
             grid[i, 0, yy, xx] = (_xx/w) - bbox[0]
             grid[i, 1, yy, xx] = (_yy/h) - bbox[1]
             grid[i, 2, yy, xx] = bbox[2] - (_xx/w)
@@ -78,18 +78,18 @@ def inv_relative_bboxes(hasobjs, bboxes):
     '''Invert the grid created by the function with the same name.'''
     assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
     _, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32)[:, None]
+    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
+    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
     bboxes_offset = torch.stack((
         xx/w-bboxes[:, 0], yy/h-bboxes[:, 1],
         bboxes[:, 2]+xx/w, bboxes[:, 3]+yy/h
     ), -1)
     return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
 
-def classes(h, w, batch_slices, batch_classes):
+def classes(h, w, batch_slices, batch_classes, device=None):
     '''Sets the respective class wherever the object is, according to the given slicing.'''
     n = len(batch_slices)
-    grid = torch.zeros((n, h, w), dtype=torch.int64)
+    grid = torch.zeros((n, h, w), dtype=torch.int64, device=device)
     for i, (slices, classes) in enumerate(zip(batch_slices, batch_classes)):
         for (yy, xx), klass in zip(slices, classes):
             grid[i, yy, xx] = klass

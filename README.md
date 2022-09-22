@@ -135,9 +135,9 @@ for epoch in range(epochs):
         preds_scores, preds_bboxes, preds_classes = model(imgs)
 
         slices = od.grid.slices_center_locations(8, 8, targets['bboxes'])
-        scores = od.grid.scores(8, 8, slices).to(device)
-        bboxes = od.grid.offset_logsize_bboxes(8, 8, slices, targets['bboxes']).to(device)
-        classes = od.grid.classes(8, 8, slices, targets['classes']).to(device)
+        scores = od.grid.scores(8, 8, slices, device=device)
+        bboxes = od.grid.offset_logsize_bboxes(8, 8, slices, targets['bboxes'], device=device)
+        classes = od.grid.classes(8, 8, slices, targets['classes'], device=device)
 
         loss_value = \
             scores_loss(preds_scores, scores) + \
