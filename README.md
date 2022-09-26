@@ -54,10 +54,11 @@ Notice that, like the object detection models that come with torchvision (see e.
 class MyModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.backbone = torchvision.models.vgg16(weights='DEFAULT').features
-        self.scores = torch.nn.Conv2d(512, 1, 1)
-        self.classes = torch.nn.Conv2d(512, 20, 1)
-        self.bboxes = torch.nn.Conv2d(512, 4, 1)
+        resnet = torchvision.models.resnet50(weights='DEFAULT')
+        self.backbone = torch.nn.Sequential(*list(resnet.children())[:-2])
+        self.scores = torch.nn.Conv2d(2048, 1, 1)
+        self.classes = torch.nn.Conv2d(2048, 20, 1)
+        self.bboxes = torch.nn.Conv2d(2048, 4, 1)
 
     def forward(self, x):
         x = self.backbone(x)
