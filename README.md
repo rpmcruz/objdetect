@@ -22,13 +22,11 @@ pip3 install git+https://github.com/rpmcruz/objdetect.git
 The package is divided into the following components:
 
 * [`anchors`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/anchors.html): Utilities to create and filter objects based on filters.
-* [`aug`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/aug.html): Some data augmentation routines.
-* [`data`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/data.html): Toy datasets.
 * [`grid`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/grid.html): Bounding box <=> grid conversion functions.
 * [`losses`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/losses.html): Extra losses for object detection.
 * [`metrics`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/metrics.html): The common AP/Precision-Recall metrics.
-* [`plot`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/plot.html): Common plotting methods.
 * [`post`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/post.html): Post-processing algorithms, such as non-maximum suppression.
+* [`utils`](http://htmlpreview.github.io/?https://github.com/rpmcruz/objdetect/blob/main/html/utils.html): Some methods for helping to plot or data handling.
 
 ## Getting Started
 
@@ -38,56 +36,17 @@ A notebook example is provided in the `src` folder which provides boiler-plate c
 import objdetect as od
 ```
 
-**Augmentation:** Some data augmentation routines for object detection are available. These are mainly provided for educational purposes and might be removed in the future. We recommend you use [Albumentations](https://albumentations.ai/), which work similarly to ours.
+**Data:** For augmentation and data loading, we recommend using existing packages. [Albumentations](https://albumentations.ai/) provides data augmentation methods for object detection. TorchVision provides [dataset code](https://pytorch.org/vision/stable/datasets.html#image-detection-or-segmentation) for some popular object detection datasets. See the notebook for an example.
+
+We recommend using 0-1 normalized x1y1x2y2 format for the bounding boxes. Furthermore, since the number of bounding boxes varies for each image, the normal PyTorch code that converts data into batches does not work. We need to specify a `collate` function for how the batches should be created.
 
 ```python
-transformations = od.aug.Compose([
-    od.aug.Resize(int(256*1.1), int(256*1.1)),
-    od.aug.RandomCrop(256, 256),
-    od.aug.RandomHflip(),
-    od.aug.RandomBrightnessContrast(0.1, 0.1),
-    od.aug.ImageNetNormalize(),
-])
+tr = torch.utils.data.DataLoader(ds, 16, True, collate_fn=od.utils.collate_fn)
 ```
 
-**Data:** Some data loaders are provided: Pascal VOC, Coco, KITTI.
+**Model:** We use the PyTorch philosophy of having the training loop done by the programmer. Here we provide some boiler-plate code of how to do so. We will create the model in the following picture.
 
-```python
-ds = od.data.VOCDetection('data', 'train', transformations, download=True)
-```
-
-Each sample is a dictionary composed of at least: image, bboxes and classes.
-
-```python
-d = ds[0]
-print(d.keys())
-```
-
-```
-dict_keys(['image', 'bboxes', 'classes'])
-```
-
-**Plot:** We provide some plotting routines for convenience.
-
-```python
-od.plot.image(d['image'])
-od.plot.grid_lines(d['image'], 8, 8)
-od.plot.bboxes(d['image'], d['bboxes'])
-od.plot.classes(d['image'], d['bboxes'], d['classes'], ds.labels)
-od.plot.show()
-```
-
-![](src/image.jpg)
-
-Naturally, the number of bounding boxes varies for each image, therefore they cannot be turned into tensors, so we need to specify a `collate` function for how the batches should be created.
-
-```python
-tr = torch.utils.data.DataLoader(ds, 16, True, collate_fn=od.data.collate_fn)
-```
-
-**Model:** We used to provide method to create models and training loops. However, as commonly done in PyTorch, it is better if you setup your model and create your own training loop. Here we provide some boiler-plate code of how to do so. We will create the following model.
-
-Notice that, like the object detection models that come with torchvision (see e.g. [FCOS](https://pytorch.org/vision/stable/models/generated/torchvision.models.detection.fcos_resnet50_fpn.html#torchvision.models.detection.fcos_resnet50_fpn)), the behavior of our code changes if in `train` or `eval` mode, but we don't do exactly what they do. In `train` mode, we return the *unprocessed* scores/classes/bboxes grids. In `eval` mode, we return the *processed* classes/bboxes in the form of a list.
+Notice that, like the object detection models that come with torchvision (see e.g. [FCOS](https://pytorch.org/vision/stable/models/generated/torchvision.models.detection.fcos_resnet50_fpn.html#torchvision.models.detection.fcos_resnet50_fpn)), the behavior of our code changes if in `train` or `eval` mode. However, we do not do exactly what they do: In `train` mode, we return the *unprocessed* scores/classes/bboxes grids. In `eval` mode, we return the *processed* classes/bboxes in the form of a list.
 
 ![](src/model.svg)
 
@@ -117,9 +76,9 @@ class MyModel(torch.nn.Module):
         return scores, bboxes, classes
 ```
 
-**Training:** Again, we no longer provide routines for the training loop. It is better if you create your own. Here is some boiler-plate code.
+**Training:** Again, here is some boiler-plate code for creating your own training loop.
 
-Notice that `reduction='none'`. This is very important so that we obtain loss per location and can then multiply by whether there is an object on that location (1) or not (0). That way, we do not penalize the network for making predictions when no object exists on the location.
+Notice that losses are defined with `reduction='none'`. This is very important so that we obtain loss per location and can then multiply by whether there is an object on that location (1) or not (0). That way, we do not penalize the network for making predictions when no object exists on the location.
 
 ```python
 model = MyModel().to(device)
@@ -154,9 +113,9 @@ for epoch in range(epochs):
 
 **Grid:** When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). You can do so during the data augmentation pipeline (which takes advantage of the DataLoader parallelization), but it might be simpler to do so inside the training loop (see the code above).
 
-Notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`slices_center_locations()`), and the bounding box would specify the center offset and log-size (`offset_logsize_bboxes()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations it touches (`slices_all_locations()`), and the bounding box would be set relative (`inv_offset_logsize_bboxes()`).
+Notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (`od.grid.slices_center_locations()`), and the bounding box would specify the center offset and log-size (`od.grid.offset_logsize_bboxes()`). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations it touches (`od.grid.slices_all_locations()`), and the bounding box would be set relative (`od.grid.inv_offset_logsize_bboxes()`).
 
-**Evaluation:** For evaluation purposes, we provide several metrics: the precision-recall curve, AP, mAP. These are mainly provided for educational purposes. You may want to consider using the [TorchMetrics package](https://torchmetrics.readthedocs.io/en/stable/).
+**Evaluation:** For evaluation purposes, we provide several metrics: the precision-recall curve, AP, mAP. These are mainly provided for educational purposes. You may want to consider using the [TorchMetrics package](https://torchmetrics.readthedocs.io/en/stable/) for evaluation purposes.
 
 ## Citation
 
