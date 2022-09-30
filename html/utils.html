@@ -50,8 +50,8 @@ def plot(image, bboxes, labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;
 def collate_fn(batch):
     &#39;&#39;&#39;The number of bounding boxes varies for each image, therefore the default PyTorch `collate` function (which creates the batches) must be replaced so that only images are turned into tensors.&#39;&#39;&#39;
     import torch
-    imgs = torch.stack([d[&#39;image&#39;] for d in batch])
-    targets = {key: [d[key] for d in batch] for key in batch[0].keys()}
+    imgs = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
+    targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
     return imgs, targets</code></pre>
 </details>
 </section>
@@ -74,8 +74,8 @@ def collate_fn(batch):
 <pre><code class="python">def collate_fn(batch):
     &#39;&#39;&#39;The number of bounding boxes varies for each image, therefore the default PyTorch `collate` function (which creates the batches) must be replaced so that only images are turned into tensors.&#39;&#39;&#39;
     import torch
-    imgs = torch.stack([d[&#39;image&#39;] for d in batch])
-    targets = {key: [d[key] for d in batch] for key in batch[0].keys()}
+    imgs = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
+    targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
     return imgs, targets</code></pre>
 </details>
 </dd>
