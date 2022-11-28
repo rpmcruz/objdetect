@@ -2,13 +2,12 @@
 Miscelaneous utilities, for plotting or data handling.
 '''
 
-def plot(image, bboxes, labels=None, color='blue', linestyle='-', grid=None):
-    '''Draws the given bounding boxes and (if provided) labels'''
+def plot(bboxes, size=(1, 1), labels=None, color='blue', linestyle='-', grid=None):
+    '''Draws the given bounding boxes and (if provided) labels. Size is used to convert relative bboxes to absolute bboxes (size=(1, 1) if your bboxes are already absolute).'''
     import matplotlib.pyplot as plt
     import matplotlib
     import numpy as np
-    plt.imshow(image.permute((1, 2, 0)))
-    _, h, w = image.shape
+    h, w = size
     if grid:
         plt.vlines(np.linspace(0, w, grid[1]+1), 0, h, color='gray', lw=1)
         plt.hlines(np.linspace(0, h, grid[0]+1), 0, w, color='gray', lw=1)

@@ -31,13 +31,12 @@
 Miscelaneous utilities, for plotting or data handling.
 &#39;&#39;&#39;
 
-def plot(image, bboxes, labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;, grid=None):
-    &#39;&#39;&#39;Draws the given bounding boxes and (if provided) labels&#39;&#39;&#39;
+def plot(bboxes, size=(1, 1), labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;, grid=None):
+    &#39;&#39;&#39;Draws the given bounding boxes and (if provided) labels. Size is used to convert relative bboxes to absolute bboxes (size=(1, 1) if your bboxes are already absolute).&#39;&#39;&#39;
     import matplotlib.pyplot as plt
     import matplotlib
     import numpy as np
-    plt.imshow(image.permute((1, 2, 0)))
-    _, h, w = image.shape
+    h, w = size
     if grid:
         plt.vlines(np.linspace(0, w, grid[1]+1), 0, h, color=&#39;gray&#39;, lw=1)
         plt.hlines(np.linspace(0, h, grid[0]+1), 0, w, color=&#39;gray&#39;, lw=1)
@@ -80,21 +79,20 @@ def collate_fn(batch):
 </details>
 </dd>
 <dt id="utils.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>image, bboxes, labels=None, color='blue', linestyle='-', grid=None)</span>
+<span>def <span class="ident">plot</span></span>(<span>bboxes, size=(1, 1), labels=None, color='blue', linestyle='-', grid=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Draws the given bounding boxes and (if provided) labels</p></div>
+<div class="desc"><p>Draws the given bounding boxes and (if provided) labels. Size is used to convert relative bboxes to absolute bboxes (size=(1, 1) if your bboxes are already absolute).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(image, bboxes, labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;, grid=None):
-    &#39;&#39;&#39;Draws the given bounding boxes and (if provided) labels&#39;&#39;&#39;
+<pre><code class="python">def plot(bboxes, size=(1, 1), labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;, grid=None):
+    &#39;&#39;&#39;Draws the given bounding boxes and (if provided) labels. Size is used to convert relative bboxes to absolute bboxes (size=(1, 1) if your bboxes are already absolute).&#39;&#39;&#39;
     import matplotlib.pyplot as plt
     import matplotlib
     import numpy as np
-    plt.imshow(image.permute((1, 2, 0)))
-    _, h, w = image.shape
+    h, w = size
     if grid:
         plt.vlines(np.linspace(0, w, grid[1]+1), 0, h, color=&#39;gray&#39;, lw=1)
         plt.hlines(np.linspace(0, h, grid[0]+1), 0, w, color=&#39;gray&#39;, lw=1)
