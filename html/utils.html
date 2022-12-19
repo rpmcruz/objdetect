@@ -51,7 +51,13 @@ def collate_fn(batch):
     import torch
     imgs = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
     targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
-    return imgs, targets</code></pre>
+    return imgs, targets
+
+def filter_grid(data, grid_min, grid_max):
+    &#39;&#39;&#39;Useful to filter objects when working with grids. The filter selects only objects when grid_min &lt;= max(width, height) &lt; grid_max.&#39;&#39;&#39;
+    ix = [[grid_min &lt;= max(bb[2]-bb[0], bb[3]-bb[1]) &lt; grid_max
+        for bb in bbs] for bbs in data[&#39;bboxes&#39;]]
+    return {key: [[e for i, e in zip(x, l) if i] for x, l in zip(ix, ll)] for key, ll in data.items()}</code></pre>
 </details>
 </section>
 <section>
@@ -76,6 +82,22 @@ def collate_fn(batch):
     imgs = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
     targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
     return imgs, targets</code></pre>
+</details>
+</dd>
+<dt id="utils.filter_grid"><code class="name flex">
+<span>def <span class="ident">filter_grid</span></span>(<span>data, grid_min, grid_max)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Useful to filter objects when working with grids. The filter selects only objects when grid_min &lt;= max(width, height) &lt; grid_max.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def filter_grid(data, grid_min, grid_max):
+    &#39;&#39;&#39;Useful to filter objects when working with grids. The filter selects only objects when grid_min &lt;= max(width, height) &lt; grid_max.&#39;&#39;&#39;
+    ix = [[grid_min &lt;= max(bb[2]-bb[0], bb[3]-bb[1]) &lt; grid_max
+        for bb in bbs] for bbs in data[&#39;bboxes&#39;]]
+    return {key: [[e for i, e in zip(x, l) if i] for x, l in zip(ix, ll)] for key, ll in data.items()}</code></pre>
 </details>
 </dd>
 <dt id="utils.plot"><code class="name flex">
@@ -117,6 +139,7 @@ def collate_fn(batch):
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="utils.collate_fn" href="#utils.collate_fn">collate_fn</a></code></li>
+<li><code><a title="utils.filter_grid" href="#utils.filter_grid">filter_grid</a></code></li>
 <li><code><a title="utils.plot" href="#utils.plot">plot</a></code></li>
 </ul>
 </li>
