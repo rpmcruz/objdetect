@@ -20,8 +20,8 @@ def slices_all_locations(h, w, batch_bboxes):
 def slices_almost_all_locations(h, w, batch_bboxes):
     '''Choose all grid locations that contain at least half of the object, which seems to be what FCOS does because they mention that "regression targets are always positive" therefore the offset computed afterwards needs to contain the center.'''
     return [[(
-        slice(round(bbox[1]*h), round(bbox[3]*h)),
-        slice(round(bbox[0]*w), round(bbox[2]*w)),
+        slice(int(torch.round(bbox[1]*h)), int(torch.round(bbox[3]*h))),
+        slice(int(torch.round(bbox[0]*w)), int(torch.round(bbox[2]*w))),
     ) for bbox in bboxes] for bboxes in batch_bboxes]
 
 def scores(h, w, batch_slices, device=None):
