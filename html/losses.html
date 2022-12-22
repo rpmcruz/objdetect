@@ -34,22 +34,23 @@ PyTorch already comes with most useful losses, such as MSE, BCE and sigmoid_foca
 import torch
 from objdetect.post import valid_bboxes
 
-def convert_rel2abs(bboxes):
+def convert_rel2abs(bboxes, corner_offset=0.5):
     &#39;&#39;&#39;Similar to `inv_grid.InvRelBboxes`. Converts relative bounding boxes to absolute bounding boxes.&#39;&#39;&#39;
     _, _, h, w = bboxes.shape
-    yy = torch.linspace(0, h, 1, device=bboxes.device)
-    xx = torch.linspace(0, w, 1, device=bboxes.device)
+    yy = torch.arange(0, h, dtype=torch.float32, device=bboxes.device)
+    xx = torch.arange(0, w, dtype=torch.float32, device=bboxes.device)
     yy, xx = torch.meshgrid(yy, xx, indexing=&#39;xy&#39;)
     bboxes_offset = torch.stack((
-        xx/w-bboxes[:, 0], yy/h-bboxes[:, 1],
-        bboxes[:, 2]+xx/w, bboxes[:, 3]+yy/h
+        xx/w-bboxes[:, 0]+corner_offset, yy/h-bboxes[:, 1]+corner_offset,
+        bboxes[:, 2]+xx/w-corner_offset, bboxes[:, 3]+yy/h-corner_offset
     ), 1)
     return bboxes_offset
 
-def ConvertRel2Abs(loss_fn):
+def ConvertRel2Abs(loss_fn, corner_offset=0.5):
     &#39;&#39;&#39;This is useful because some losses require the bounding boxes to be absolute.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
-        return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
+        return loss_fn(convert_rel2abs(bboxes1, corner_offset),
+            convert_rel2abs(bboxes2, corner_offset))
     return f
 
 def IoU(do_validation, smooth=1):
@@ -108,7 +109,7 @@ def GIoU(do_validation, smooth=1):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="losses.ConvertRel2Abs"><code class="name flex">
-<span>def <span class="ident">ConvertRel2Abs</span></span>(<span>loss_fn)</span>
+<span>def <span class="ident">ConvertRel2Abs</span></span>(<span>loss_fn, corner_offset=0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>This is useful because some losses require the bounding boxes to be absolute.</p></div>
@@ -116,10 +117,11 @@ def GIoU(do_validation, smooth=1):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ConvertRel2Abs(loss_fn):
+<pre><code class="python">def ConvertRel2Abs(loss_fn, corner_offset=0.5):
     &#39;&#39;&#39;This is useful because some losses require the bounding boxes to be absolute.&#39;&#39;&#39;
     def f(bboxes1, bboxes2):
-        return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
+        return loss_fn(convert_rel2abs(bboxes1, corner_offset),
+            convert_rel2abs(bboxes2, corner_offset))
     return f</code></pre>
 </details>
 </dd>
@@ -191,7 +193,7 @@ def GIoU(do_validation, smooth=1):
 </details>
 </dd>
 <dt id="losses.convert_rel2abs"><code class="name flex">
-<span>def <span class="ident">convert_rel2abs</span></span>(<span>bboxes)</span>
+<span>def <span class="ident">convert_rel2abs</span></span>(<span>bboxes, corner_offset=0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <code>inv_grid.InvRelBboxes</code>. Converts relative bounding boxes to absolute bounding boxes.</p></div>
@@ -199,15 +201,15 @@ def GIoU(do_validation, smooth=1):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def convert_rel2abs(bboxes):
+<pre><code class="python">def convert_rel2abs(bboxes, corner_offset=0.5):
     &#39;&#39;&#39;Similar to `inv_grid.InvRelBboxes`. Converts relative bounding boxes to absolute bounding boxes.&#39;&#39;&#39;
     _, _, h, w = bboxes.shape
-    yy = torch.linspace(0, h, 1, device=bboxes.device)
-    xx = torch.linspace(0, w, 1, device=bboxes.device)
+    yy = torch.arange(0, h, dtype=torch.float32, device=bboxes.device)
+    xx = torch.arange(0, w, dtype=torch.float32, device=bboxes.device)
     yy, xx = torch.meshgrid(yy, xx, indexing=&#39;xy&#39;)
     bboxes_offset = torch.stack((
-        xx/w-bboxes[:, 0], yy/h-bboxes[:, 1],
-        bboxes[:, 2]+xx/w, bboxes[:, 3]+yy/h
+        xx/w-bboxes[:, 0]+corner_offset, yy/h-bboxes[:, 1]+corner_offset,
+        bboxes[:, 2]+xx/w-corner_offset, bboxes[:, 3]+yy/h-corner_offset
     ), 1)
     return bboxes_offset</code></pre>
 </details>

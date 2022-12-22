@@ -5,22 +5,23 @@ PyTorch already comes with most useful losses, such as MSE, BCE and sigmoid_foca
 import torch
 from objdetect.post import valid_bboxes
 
-def convert_rel2abs(bboxes):
+def convert_rel2abs(bboxes, corner_offset=0.5):
     '''Similar to `inv_grid.InvRelBboxes`. Converts relative bounding boxes to absolute bounding boxes.'''
     _, _, h, w = bboxes.shape
-    yy = torch.linspace(0, h, 1, device=bboxes.device)
-    xx = torch.linspace(0, w, 1, device=bboxes.device)
+    yy = torch.arange(0, h, dtype=torch.float32, device=bboxes.device)
+    xx = torch.arange(0, w, dtype=torch.float32, device=bboxes.device)
     yy, xx = torch.meshgrid(yy, xx, indexing='xy')
     bboxes_offset = torch.stack((
-        xx/w-bboxes[:, 0], yy/h-bboxes[:, 1],
-        bboxes[:, 2]+xx/w, bboxes[:, 3]+yy/h
+        xx/w-bboxes[:, 0]+corner_offset, yy/h-bboxes[:, 1]+corner_offset,
+        bboxes[:, 2]+xx/w-corner_offset, bboxes[:, 3]+yy/h-corner_offset
     ), 1)
     return bboxes_offset
 
-def ConvertRel2Abs(loss_fn):
+def ConvertRel2Abs(loss_fn, corner_offset=0.5):
     '''This is useful because some losses require the bounding boxes to be absolute.'''
     def f(bboxes1, bboxes2):
-        return loss_fn(convert_rel2abs(bboxes1), convert_rel2abs(bboxes2))
+        return loss_fn(convert_rel2abs(bboxes1, corner_offset),
+            convert_rel2abs(bboxes2, corner_offset))
     return f
 
 def IoU(do_validation, smooth=1):

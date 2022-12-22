@@ -17,6 +17,13 @@ def slices_all_locations(h, w, batch_bboxes):
         slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w))),
     ) for bbox in bboxes] for bboxes in batch_bboxes]
 
+def slices_almost_all_locations(h, w, batch_bboxes):
+    '''Choose all grid locations that contain at least half of the object, which seems to be what FCOS does because they mention that "regression targets are always positive" therefore the offset computed afterwards needs to contain the center.'''
+    return [[(
+        slice(round(bbox[1]*h), round(bbox[3]*h)),
+        slice(round(bbox[0]*w), round(bbox[2]*w)),
+    ) for bbox in bboxes] for bboxes in batch_bboxes]
+
 def scores(h, w, batch_slices, device=None):
     '''Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.'''
     n = len(batch_slices)
@@ -60,7 +67,33 @@ def inv_offset_logsize_bboxes(hasobjs, bboxes):
     ), -1)
     return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
 
-def relative_bboxes(h, w, batch_slices, batch_bboxes, device=None):
+def relative_bboxes(h, w, batch_slices, batch_bboxes, device=None, corner_offset=0.5):
+    '''For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
+    n = len(batch_slices)
+    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
+    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
+        for (yy, xx), bbox in zip(slices, bboxes):
+            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32, device=device)[None, :]
+            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32, device=device)[:, None]
+            grid[i, 0, yy, xx] = (_xx/w) - bbox[0] + corner_offset
+            grid[i, 1, yy, xx] = (_yy/h) - bbox[1] + corner_offset
+            grid[i, 2, yy, xx] = bbox[2] - (_xx/w) - corner_offset
+            grid[i, 3, yy, xx] = bbox[3] - (_yy/h) - corner_offset
+    return grid
+
+def inv_relative_bboxes(hasobjs, bboxes, corner_offset=0.5):
+    '''Invert the grid created by the function with the same name.'''
+    assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
+    _, _, h, w = hasobjs.shape
+    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
+    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
+    bboxes_offset = torch.stack((
+        xx/w-bboxes[:, 0]+corner_offset, yy/h-bboxes[:, 1]+corner_offset,
+        bboxes[:, 2]+xx/w-corner_offset, bboxes[:, 3]+yy/h-corner_offset
+    ), -1)
+    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
+
+def relative_center_bboxes(h, w, batch_slices, batch_bboxes, device=None):
     '''For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).'''
     n = len(batch_slices)
     grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
@@ -73,18 +106,6 @@ def relative_bboxes(h, w, batch_slices, batch_bboxes, device=None):
             grid[i, 2, yy, xx] = bbox[2] - (_xx/w)
             grid[i, 3, yy, xx] = bbox[3] - (_yy/h)
     return grid
-
-def inv_relative_bboxes(hasobjs, bboxes):
-    '''Invert the grid created by the function with the same name.'''
-    assert hasobjs.dtype is torch.bool, 'Hasobjs must be a boolean grid'
-    _, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
-    bboxes_offset = torch.stack((
-        xx/w-bboxes[:, 0], yy/h-bboxes[:, 1],
-        bboxes[:, 2]+xx/w, bboxes[:, 3]+yy/h
-    ), -1)
-    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
 
 def classes(h, w, batch_slices, batch_classes, device=None):
     '''Sets the respective class wherever the object is, according to the given slicing.'''
