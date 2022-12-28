@@ -1,5 +1,5 @@
 '''
-Anchor related methods.
+Utilities to create and filter objects based on anchors.
 '''
 
 def compute_anchors(ds, n):

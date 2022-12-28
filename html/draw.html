@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>utils API documentation</title>
-<meta name="description" content="Miscelaneous utilities for data handling." />
+<title>draw API documentation</title>
+<meta name="description" content="Simple primitives to draw the bounding boxes." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -19,31 +19,48 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>utils</code></h1>
+<h1 class="title">Module <code>draw</code></h1>
 </header>
 <section id="section-intro">
-<p>Miscelaneous utilities for data handling.</p>
+<p>Simple primitives to draw the bounding boxes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#39;&#39;&#39;
-Miscelaneous utilities for data handling.
+Simple primitives to draw the bounding boxes.
 &#39;&#39;&#39;
 
-import torch
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+import numpy as np
 
-def collate_fn(batch):
-    &#39;&#39;&#39; The number of bounding boxes varies for each image, therefore the default PyTorch `collate` function (which creates the batches) must be replaced so that only images are turned into tensors. &#39;&#39;&#39;
-    images = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
-    targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
-    return images, targets
+def bboxes(bboxes, scale=(1, 1), labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;):
+    &#39;&#39;&#39; Draws the given bounding boxes and (if provided) labels. If you use 0-1 normalized bboxes, then give scale=image_size to convert them. &#39;&#39;&#39;
+    h, w = scale
+    for i, (xmin, ymin, xmax, ymax) in enumerate(bboxes):
+        plt.gca().add_patch(Rectangle(
+            (xmin*w, ymin*h), (xmax-xmin)*w, (ymax-ymin)*h,
+            lw=2, ls=linestyle, ec=color, fc=&#39;none&#39;))
+        if labels is not None:
+            plt.text(xmin*w, ymin*h, str(labels[i]), c=color)
 
-def filter_grid(data, grid_min, grid_max):
-    &#39;&#39;&#39; Useful to filter objects when working with grids. The filter selects only objects when grid_min &lt;= max(width, height) &lt; grid_max. &#39;&#39;&#39;
-    ix = [[grid_min &lt;= max(bb[2]-bb[0], bb[3]-bb[1]) &lt; grid_max
-        for bb in bbs] for bbs in data[&#39;bboxes&#39;]]
-    return {key: [[e for i, e in zip(x, l) if i] for x, l in zip(ix, ll)] for key, ll in data.items()}</code></pre>
+def grid(size, color=&#39;gray&#39;):
+    &#39;&#39;&#39; Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes. &#39;&#39;&#39;
+    plt.vlines(np.linspace(0, w, size[1]+1), 0, h, c=color, lw=1)
+    plt.hlines(np.linspace(0, h, size[0]+1), 0, w, c=color, lw=1)
+
+def grid_scores(scores, img_size, lt_color=&#39;gray&#39;, gt_color=&#39;red&#39;, threshold=0.5):
+    &#39;&#39;&#39; Draw the output scores. Useful for debugging if the model is learning to predict the scores correctly. &#39;&#39;&#39;
+    assert len(scores.shape) == 2
+    grid_size = scores.shape
+    sh = img_size[0]/grid_size[0]
+    sw = img_size[1]/grid_size[1]
+    for y in range(scores.shape[0]):
+        for x in range(scores.shape[1]):
+            score = scores[y, x]
+            color = gt_color if score &gt;= threshold else lt_color
+            plt.text((x+0.5)*sw, (y+0.5)*sh, f&#39;{score*100:.0f}&#39;, color=color, ha=&#39;center&#39;, fontsize=&#39;x-small&#39;)</code></pre>
 </details>
 </section>
 <section>
@@ -53,36 +70,61 @@ def filter_grid(data, grid_min, grid_max):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="utils.collate_fn"><code class="name flex">
-<span>def <span class="ident">collate_fn</span></span>(<span>batch)</span>
+<dt id="draw.bboxes"><code class="name flex">
+<span>def <span class="ident">bboxes</span></span>(<span>bboxes, scale=(1, 1), labels=None, color='blue', linestyle='-')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>The number of bounding boxes varies for each image, therefore the default PyTorch <code>collate</code> function (which creates the batches) must be replaced so that only images are turned into tensors.</p></div>
+<div class="desc"><p>Draws the given bounding boxes and (if provided) labels. If you use 0-1 normalized bboxes, then give scale=image_size to convert them.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def collate_fn(batch):
-    &#39;&#39;&#39; The number of bounding boxes varies for each image, therefore the default PyTorch `collate` function (which creates the batches) must be replaced so that only images are turned into tensors. &#39;&#39;&#39;
-    images = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
-    targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
-    return images, targets</code></pre>
+<pre><code class="python">def bboxes(bboxes, scale=(1, 1), labels=None, color=&#39;blue&#39;, linestyle=&#39;-&#39;):
+    &#39;&#39;&#39; Draws the given bounding boxes and (if provided) labels. If you use 0-1 normalized bboxes, then give scale=image_size to convert them. &#39;&#39;&#39;
+    h, w = scale
+    for i, (xmin, ymin, xmax, ymax) in enumerate(bboxes):
+        plt.gca().add_patch(Rectangle(
+            (xmin*w, ymin*h), (xmax-xmin)*w, (ymax-ymin)*h,
+            lw=2, ls=linestyle, ec=color, fc=&#39;none&#39;))
+        if labels is not None:
+            plt.text(xmin*w, ymin*h, str(labels[i]), c=color)</code></pre>
 </details>
 </dd>
-<dt id="utils.filter_grid"><code class="name flex">
-<span>def <span class="ident">filter_grid</span></span>(<span>data, grid_min, grid_max)</span>
+<dt id="draw.grid"><code class="name flex">
+<span>def <span class="ident">grid</span></span>(<span>size, color='gray')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Useful to filter objects when working with grids. The filter selects only objects when grid_min &lt;= max(width, height) &lt; grid_max.</p></div>
+<div class="desc"><p>Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def filter_grid(data, grid_min, grid_max):
-    &#39;&#39;&#39; Useful to filter objects when working with grids. The filter selects only objects when grid_min &lt;= max(width, height) &lt; grid_max. &#39;&#39;&#39;
-    ix = [[grid_min &lt;= max(bb[2]-bb[0], bb[3]-bb[1]) &lt; grid_max
-        for bb in bbs] for bbs in data[&#39;bboxes&#39;]]
-    return {key: [[e for i, e in zip(x, l) if i] for x, l in zip(ix, ll)] for key, ll in data.items()}</code></pre>
+<pre><code class="python">def grid(size, color=&#39;gray&#39;):
+    &#39;&#39;&#39; Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes. &#39;&#39;&#39;
+    plt.vlines(np.linspace(0, w, size[1]+1), 0, h, c=color, lw=1)
+    plt.hlines(np.linspace(0, h, size[0]+1), 0, w, c=color, lw=1)</code></pre>
+</details>
+</dd>
+<dt id="draw.grid_scores"><code class="name flex">
+<span>def <span class="ident">grid_scores</span></span>(<span>scores, img_size, lt_color='gray', gt_color='red', threshold=0.5)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Draw the output scores. Useful for debugging if the model is learning to predict the scores correctly.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def grid_scores(scores, img_size, lt_color=&#39;gray&#39;, gt_color=&#39;red&#39;, threshold=0.5):
+    &#39;&#39;&#39; Draw the output scores. Useful for debugging if the model is learning to predict the scores correctly. &#39;&#39;&#39;
+    assert len(scores.shape) == 2
+    grid_size = scores.shape
+    sh = img_size[0]/grid_size[0]
+    sw = img_size[1]/grid_size[1]
+    for y in range(scores.shape[0]):
+        for x in range(scores.shape[1]):
+            score = scores[y, x]
+            color = gt_color if score &gt;= threshold else lt_color
+            plt.text((x+0.5)*sw, (y+0.5)*sh, f&#39;{score*100:.0f}&#39;, color=color, ha=&#39;center&#39;, fontsize=&#39;x-small&#39;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -98,8 +140,9 @@ def filter_grid(data, grid_min, grid_max):
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="utils.collate_fn" href="#utils.collate_fn">collate_fn</a></code></li>
-<li><code><a title="utils.filter_grid" href="#utils.filter_grid">filter_grid</a></code></li>
+<li><code><a title="draw.bboxes" href="#draw.bboxes">bboxes</a></code></li>
+<li><code><a title="draw.grid" href="#draw.grid">grid</a></code></li>
+<li><code><a title="draw.grid_scores" href="#draw.grid_scores">grid_scores</a></code></li>
 </ul>
 </li>
 </ul>

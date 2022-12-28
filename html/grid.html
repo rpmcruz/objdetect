@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>grid API documentation</title>
-<meta name="description" content="In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid." />
+<meta name="description" content="One-shot object detection require utilities to transform the input onto a grid to compare against the neural network output which also produces a grid." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,165 +22,66 @@
 <h1 class="title">Module <code>grid</code></h1>
 </header>
 <section id="section-intro">
-<p>In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid.</p>
+<p>One-shot object detection require utilities to transform the input onto a grid to compare against the neural network output which also produces a grid.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#39;&#39;&#39;
-In one-shot object detection, we need to transform the input onto a grid to compare against the neural network output which also produces a grid.
+One-shot object detection require utilities to transform the input onto a grid to compare against the neural network output which also produces a grid.
 &#39;&#39;&#39;
 
 import torch
 
-def slices_center_locations(h, w, batch_bboxes):
-    &#39;&#39;&#39;Place the object only on the center location of the object (similar to YOLOv3).&#39;&#39;&#39;
-    batch_yy = ((int(((bbox[1]+bbox[3])/2)*h) for bbox in bboxes) for bboxes in batch_bboxes)
-    batch_xx = ((int(((bbox[0]+bbox[2])/2)*w) for bbox in bboxes) for bboxes in batch_bboxes)
-    return [[(slice(y, y+1), slice(x, x+1)) for y, x in zip(yy, xx)] for yy, xx in zip(batch_yy, batch_xx)]
+def slice_center(bbox):
+    &#39;&#39;&#39; Place the object only on the center location of the object (similar to YOLOv3). If the bounding boxes are normalized then you can use img_size=(1,1). &#39;&#39;&#39;
+    cx = (bbox[0]+bbox[2]) // 2
+    cy = (bbox[1]+bbox[3]) // 2
+    return (cx, cy, cx+1, cy+1)
 
-def slices_all_locations(h, w, batch_bboxes):
-    &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object, even if partially.&#39;&#39;&#39;
-    return [[(
-        slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h))),
-        slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w))),
-    ) for bbox in bboxes] for bboxes in batch_bboxes]
+def slice_all(bbox):
+    &#39;&#39;&#39; Choose all grid locations that contain the object, even if only one pixel. &#39;&#39;&#39;
+    return (
+        torch.floor(bbox[0]), torch.floor(bbox[1]),
+        torch.ceil(bbox[2]), torch.ceil(bbox[3])
+    )
 
-def slices_almost_all_locations(h, w, batch_bboxes):
-    &#39;&#39;&#39;Choose all grid locations that contain at least half of the object, which seems to be what FCOS does because they mention that &#34;regression targets are always positive&#34; therefore the offset computed afterwards needs to contain the center.&#39;&#39;&#39;
-    return [[(
-        slice(round(bbox[1]*h), round(bbox[3]*h)),
-        slice(round(bbox[0]*w), round(bbox[2]*w)),
-    ) for bbox in bboxes] for bboxes in batch_bboxes]
+def slice_all_center(bbox):
+    &#39;&#39;&#39; Choose all grid locations where the center contains the object, as FCOS does, so that the bounding boxes offsets relative to the center are always positive. If the bounding boxes are normalized then you can use img_size=(1,1). &#39;&#39;&#39;
+    return torch.round(bbox)
 
-def scores(h, w, batch_slices, device=None):
-    &#39;&#39;&#39;Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.&#39;&#39;&#39;
+def slices(slicing, batch_bboxes, grid_size, img_size):
+    &#39;&#39;&#39; Grid with true on the locations where the object is according to the slicing `criterium`. If you use 0-1 normalized bboxes, then give `img_size=(1,1)`. &#39;&#39;&#39;
+    device = batch_bboxes[0].device
+    scale = torch.tensor([grid_size[1]/img_size[1], grid_size[0]/img_size[0]]*2, device=device)
+    to_slice = lambda s: (slice(int(s[1]), int(s[3])), slice(int(s[0]), int(s[2])))
+    return [[to_slice(slicing(bbox*scale)) for bbox in bboxes]
+        for bboxes in batch_bboxes]
+
+def where(batch_slices, grid_size, device=None):
+    &#39;&#39;&#39; Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy. &#39;&#39;&#39;
     n = len(batch_slices)
-    grid = torch.zeros((n, 1, h, w), dtype=torch.float32, device=device)
+    grid = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
     for i, slices in enumerate(batch_slices):
         for yy, xx in slices:
-            grid[i, :, yy, xx] = 1
+            grid[i, yy, xx] = True
     return grid
 
-def inv_scores(hasobjs, scores):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    return [ss[h] for h, ss in zip(hasobjs, scores)]
-
-def offset_logsize_bboxes(h, w, batch_slices, batch_bboxes, device=None):
-    &#39;&#39;&#39;Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations.&#39;&#39;&#39;
+def to_grid(batch_data, channels, batch_slices, grid_size, device=None):
+    &#39;&#39;&#39; Maps the `batch_data` onto a grid of size `grid_size`, according to the `batch_slices`. &#39;&#39;&#39;
     n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
-    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
-        for (yy, xx), bbox in zip(slices, bboxes):
-            xc = (bbox[0]+bbox[2])/2
-            yc = (bbox[1]+bbox[3])/2
-            grid[i, 0, yy, xx] = (xc % (1/w))*w
-            grid[i, 1, yy, xx] = (yc % (1/h))*h
-            grid[i, 2, yy, xx] = torch.log(torch.as_tensor(bbox[2] - bbox[0]))
-            grid[i, 3, yy, xx] = torch.log(torch.as_tensor(bbox[3] - bbox[1]))
+    grid = torch.zeros((n, channels, *grid_size), dtype=torch.float32, device=device)
+    for i, (slices, data) in enumerate(zip(batch_slices, batch_data)):
+        for (yy, xx), d in zip(slices, data):
+            grid[i, :, yy, xx] = d[:, None, None]
     return grid
 
-def inv_offset_logsize_bboxes(hasobjs, bboxes):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    n, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
-    xc = (xx+bboxes[:, 0])/w
-    yc = (yy+bboxes[:, 1])/h
-    bw = torch.exp(bboxes[:, 2])
-    bh = torch.exp(bboxes[:, 3])
-    bboxes_offset = torch.stack((
-        xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
-    ), -1)
-    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
-
-def relative_bboxes(h, w, batch_slices, batch_bboxes, device=None, corner_offset=0.5):
-    &#39;&#39;&#39;For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
-    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
-        for (yy, xx), bbox in zip(slices, bboxes):
-            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32, device=device)[None, :]
-            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32, device=device)[:, None]
-            grid[i, 0, yy, xx] = (_xx/w) - bbox[0] + corner_offset
-            grid[i, 1, yy, xx] = (_yy/h) - bbox[1] + corner_offset
-            grid[i, 2, yy, xx] = bbox[2] - (_xx/w) - corner_offset
-            grid[i, 3, yy, xx] = bbox[3] - (_yy/h) - corner_offset
-    return grid
-
-def inv_relative_bboxes(hasobjs, bboxes, corner_offset=0.5):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    _, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
-    bboxes_offset = torch.stack((
-        xx/w-bboxes[:, 0]+corner_offset, yy/h-bboxes[:, 1]+corner_offset,
-        bboxes[:, 2]+xx/w-corner_offset, bboxes[:, 3]+yy/h-corner_offset
-    ), -1)
-    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]
-
-def relative_center_bboxes(h, w, batch_slices, batch_bboxes, device=None):
-    &#39;&#39;&#39;For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
-    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
-        for (yy, xx), bbox in zip(slices, bboxes):
-            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32, device=device)[None, :]
-            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32, device=device)[:, None]
-            grid[i, 0, yy, xx] = (_xx/w) - bbox[0]
-            grid[i, 1, yy, xx] = (_yy/h) - bbox[1]
-            grid[i, 2, yy, xx] = bbox[2] - (_xx/w)
-            grid[i, 3, yy, xx] = bbox[3] - (_yy/h)
-    return grid
-
-def classes(h, w, batch_slices, batch_classes, device=None):
-    &#39;&#39;&#39;Sets the respective class wherever the object is, according to the given slicing.&#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, h, w), dtype=torch.int64, device=device)
-    for i, (slices, classes) in enumerate(zip(batch_slices, batch_classes)):
-        for (yy, xx), klass in zip(slices, classes):
-            grid[i, yy, xx] = klass
-    return grid
-
-def inv_classes(hasobjs, classes):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    return [kk.argmax(0)[h[0]] if len(kk.shape) == 3 else kk[h[0]] for h, kk in zip(hasobjs, classes)]
-
-if __name__ == &#39;__main__&#39;:  # DEBUG
-    import matplotlib.pyplot as plt
-    import data, aug, plot
-    ds = data.VOCDetection(&#39;/data&#39;, &#39;train&#39;, aug.Resize(256, 256))
-    imgs, targets = data.collate_fn([ds[i] for i in range(5)])
-    # debug list =&gt; grid
-    slices = slices_center_locations(8, 8, targets[&#39;bboxes&#39;])
-    scores_grid = scores(8, 8, slices)
-    bboxes_grid = offset_logsize_bboxes(8, 8, slices, targets[&#39;bboxes&#39;])
-    classes_grid = classes(8, 8, slices, targets[&#39;classes&#39;])
-    for i in range(4):
-        plt.subplot(2, 2, i+1)
-        plot.image(imgs[i])
-        plot.grid_bools(imgs[i], scores_grid[i, 0])
-        plot.grid_text(imgs[i], classes_grid[i]+scores_grid[i, 0], int)
-        plot.bboxes(imgs[i], ds[i][&#39;bboxes&#39;])
-    plt.suptitle(&#39;debug list =&gt; grid&#39;)
-    plt.show()
-    # debug list =&gt; grid =&gt; list
-    hasobjs_grid = scores_grid &gt;= 0.5
-    scores_list = inv_scores(hasobjs_grid, scores_grid)
-    bboxes_list = inv_offset_logsize_bboxes(hasobjs_grid, bboxes_grid)
-    classes_list = inv_classes(hasobjs_grid, classes_grid)
-    for i in range(4):
-        plt.subplot(2, 2, i+1)
-        plot.image(imgs[i])
-        plot.bboxes(imgs[i], bboxes_list[i])
-        plot.bboxes(imgs[i], ds[i][&#39;bboxes&#39;], ec=&#39;green&#39;)
-        plot.classes(imgs[i], bboxes_list[i], classes_list[i])
-    plt.suptitle(&#39;debug list =&gt; grid =&gt; list&#39;)
-    plt.show()</code></pre>
+def select(where, grid, keep_batches):
+    &#39;&#39;&#39; Select the grid components where `where` is true. If `keep_batches=True`, then the result will be a list of tensors. &#39;&#39;&#39;
+    grid = grid.permute(0, 2, 3, 1)  # NCHW =&gt; NHWC
+    if keep_batches:
+        return [g[w, :] for w, g in zip(where, grid)]
+    return grid[where, :]</code></pre>
 </details>
 </section>
 <section>
@@ -190,176 +91,109 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="grid.classes"><code class="name flex">
-<span>def <span class="ident">classes</span></span>(<span>h, w, batch_slices, batch_classes, device=None)</span>
+<dt id="grid.select"><code class="name flex">
+<span>def <span class="ident">select</span></span>(<span>where, grid, keep_batches)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Sets the respective class wherever the object is, according to the given slicing.</p></div>
+<div class="desc"><p>Select the grid components where <code><a title="grid.where" href="#grid.where">where()</a></code> is true. If <code>keep_batches=True</code>, then the result will be a list of tensors.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def classes(h, w, batch_slices, batch_classes, device=None):
-    &#39;&#39;&#39;Sets the respective class wherever the object is, according to the given slicing.&#39;&#39;&#39;
+<pre><code class="python">def select(where, grid, keep_batches):
+    &#39;&#39;&#39; Select the grid components where `where` is true. If `keep_batches=True`, then the result will be a list of tensors. &#39;&#39;&#39;
+    grid = grid.permute(0, 2, 3, 1)  # NCHW =&gt; NHWC
+    if keep_batches:
+        return [g[w, :] for w, g in zip(where, grid)]
+    return grid[where, :]</code></pre>
+</details>
+</dd>
+<dt id="grid.slice_all"><code class="name flex">
+<span>def <span class="ident">slice_all</span></span>(<span>bbox)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Choose all grid locations that contain the object, even if only one pixel.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def slice_all(bbox):
+    &#39;&#39;&#39; Choose all grid locations that contain the object, even if only one pixel. &#39;&#39;&#39;
+    return (
+        torch.floor(bbox[0]), torch.floor(bbox[1]),
+        torch.ceil(bbox[2]), torch.ceil(bbox[3])
+    )</code></pre>
+</details>
+</dd>
+<dt id="grid.slice_all_center"><code class="name flex">
+<span>def <span class="ident">slice_all_center</span></span>(<span>bbox)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Choose all grid locations where the center contains the object, as FCOS does, so that the bounding boxes offsets relative to the center are always positive. If the bounding boxes are normalized then you can use img_size=(1,1).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def slice_all_center(bbox):
+    &#39;&#39;&#39; Choose all grid locations where the center contains the object, as FCOS does, so that the bounding boxes offsets relative to the center are always positive. If the bounding boxes are normalized then you can use img_size=(1,1). &#39;&#39;&#39;
+    return torch.round(bbox)</code></pre>
+</details>
+</dd>
+<dt id="grid.slice_center"><code class="name flex">
+<span>def <span class="ident">slice_center</span></span>(<span>bbox)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Place the object only on the center location of the object (similar to YOLOv3). If the bounding boxes are normalized then you can use img_size=(1,1).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def slice_center(bbox):
+    &#39;&#39;&#39; Place the object only on the center location of the object (similar to YOLOv3). If the bounding boxes are normalized then you can use img_size=(1,1). &#39;&#39;&#39;
+    cx = (bbox[0]+bbox[2]) // 2
+    cy = (bbox[1]+bbox[3]) // 2
+    return (cx, cy, cx+1, cy+1)</code></pre>
+</details>
+</dd>
+<dt id="grid.slices"><code class="name flex">
+<span>def <span class="ident">slices</span></span>(<span>slicing, batch_bboxes, grid_size, img_size)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Grid with true on the locations where the object is according to the slicing <code>criterium</code>. If you use 0-1 normalized bboxes, then give <code>img_size=(1,1)</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def slices(slicing, batch_bboxes, grid_size, img_size):
+    &#39;&#39;&#39; Grid with true on the locations where the object is according to the slicing `criterium`. If you use 0-1 normalized bboxes, then give `img_size=(1,1)`. &#39;&#39;&#39;
+    device = batch_bboxes[0].device
+    scale = torch.tensor([grid_size[1]/img_size[1], grid_size[0]/img_size[0]]*2, device=device)
+    to_slice = lambda s: (slice(int(s[1]), int(s[3])), slice(int(s[0]), int(s[2])))
+    return [[to_slice(slicing(bbox*scale)) for bbox in bboxes]
+        for bboxes in batch_bboxes]</code></pre>
+</details>
+</dd>
+<dt id="grid.to_grid"><code class="name flex">
+<span>def <span class="ident">to_grid</span></span>(<span>batch_data, channels, batch_slices, grid_size, device=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Maps the <code>batch_data</code> onto a grid of size <code>grid_size</code>, according to the <code>batch_slices</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_grid(batch_data, channels, batch_slices, grid_size, device=None):
+    &#39;&#39;&#39; Maps the `batch_data` onto a grid of size `grid_size`, according to the `batch_slices`. &#39;&#39;&#39;
     n = len(batch_slices)
-    grid = torch.zeros((n, h, w), dtype=torch.int64, device=device)
-    for i, (slices, classes) in enumerate(zip(batch_slices, batch_classes)):
-        for (yy, xx), klass in zip(slices, classes):
-            grid[i, yy, xx] = klass
+    grid = torch.zeros((n, channels, *grid_size), dtype=torch.float32, device=device)
+    for i, (slices, data) in enumerate(zip(batch_slices, batch_data)):
+        for (yy, xx), d in zip(slices, data):
+            grid[i, :, yy, xx] = d[:, None, None]
     return grid</code></pre>
 </details>
 </dd>
-<dt id="grid.inv_classes"><code class="name flex">
-<span>def <span class="ident">inv_classes</span></span>(<span>hasobjs, classes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Invert the grid created by the function with the same name.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def inv_classes(hasobjs, classes):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    return [kk.argmax(0)[h[0]] if len(kk.shape) == 3 else kk[h[0]] for h, kk in zip(hasobjs, classes)]</code></pre>
-</details>
-</dd>
-<dt id="grid.inv_offset_logsize_bboxes"><code class="name flex">
-<span>def <span class="ident">inv_offset_logsize_bboxes</span></span>(<span>hasobjs, bboxes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Invert the grid created by the function with the same name.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def inv_offset_logsize_bboxes(hasobjs, bboxes):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    n, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
-    xc = (xx+bboxes[:, 0])/w
-    yc = (yy+bboxes[:, 1])/h
-    bw = torch.exp(bboxes[:, 2])
-    bh = torch.exp(bboxes[:, 3])
-    bboxes_offset = torch.stack((
-        xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2
-    ), -1)
-    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]</code></pre>
-</details>
-</dd>
-<dt id="grid.inv_relative_bboxes"><code class="name flex">
-<span>def <span class="ident">inv_relative_bboxes</span></span>(<span>hasobjs, bboxes, corner_offset=0.5)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Invert the grid created by the function with the same name.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def inv_relative_bboxes(hasobjs, bboxes, corner_offset=0.5):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    _, _, h, w = hasobjs.shape
-    xx = torch.arange(0, w, dtype=torch.float32, device=hasobjs.device)[None, :]
-    yy = torch.arange(0, h, dtype=torch.float32, device=hasobjs.device)[:, None]
-    bboxes_offset = torch.stack((
-        xx/w-bboxes[:, 0]+corner_offset, yy/h-bboxes[:, 1]+corner_offset,
-        bboxes[:, 2]+xx/w-corner_offset, bboxes[:, 3]+yy/h-corner_offset
-    ), -1)
-    return [bb[h[0]] for h, bb in zip(hasobjs, bboxes_offset)]</code></pre>
-</details>
-</dd>
-<dt id="grid.inv_scores"><code class="name flex">
-<span>def <span class="ident">inv_scores</span></span>(<span>hasobjs, scores)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Invert the grid created by the function with the same name.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def inv_scores(hasobjs, scores):
-    &#39;&#39;&#39;Invert the grid created by the function with the same name.&#39;&#39;&#39;
-    assert hasobjs.dtype is torch.bool, &#39;Hasobjs must be a boolean grid&#39;
-    return [ss[h] for h, ss in zip(hasobjs, scores)]</code></pre>
-</details>
-</dd>
-<dt id="grid.offset_logsize_bboxes"><code class="name flex">
-<span>def <span class="ident">offset_logsize_bboxes</span></span>(<span>h, w, batch_slices, batch_bboxes, device=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Similar to <a href="https://arxiv.org/abs/1804.02767">YOLOv3</a>. Please notice this only makes sense if slices=slice_center_locations.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def offset_logsize_bboxes(h, w, batch_slices, batch_bboxes, device=None):
-    &#39;&#39;&#39;Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations.&#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
-    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
-        for (yy, xx), bbox in zip(slices, bboxes):
-            xc = (bbox[0]+bbox[2])/2
-            yc = (bbox[1]+bbox[3])/2
-            grid[i, 0, yy, xx] = (xc % (1/w))*w
-            grid[i, 1, yy, xx] = (yc % (1/h))*h
-            grid[i, 2, yy, xx] = torch.log(torch.as_tensor(bbox[2] - bbox[0]))
-            grid[i, 3, yy, xx] = torch.log(torch.as_tensor(bbox[3] - bbox[1]))
-    return grid</code></pre>
-</details>
-</dd>
-<dt id="grid.relative_bboxes"><code class="name flex">
-<span>def <span class="ident">relative_bboxes</span></span>(<span>h, w, batch_slices, batch_bboxes, device=None, corner_offset=0.5)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>For each location, sets the distance between each size of the bounding box and each location (see the <a href="https://arxiv.org/abs/1904.01355">FCOS paper</a>).</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def relative_bboxes(h, w, batch_slices, batch_bboxes, device=None, corner_offset=0.5):
-    &#39;&#39;&#39;For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
-    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
-        for (yy, xx), bbox in zip(slices, bboxes):
-            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32, device=device)[None, :]
-            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32, device=device)[:, None]
-            grid[i, 0, yy, xx] = (_xx/w) - bbox[0] + corner_offset
-            grid[i, 1, yy, xx] = (_yy/h) - bbox[1] + corner_offset
-            grid[i, 2, yy, xx] = bbox[2] - (_xx/w) - corner_offset
-            grid[i, 3, yy, xx] = bbox[3] - (_yy/h) - corner_offset
-    return grid</code></pre>
-</details>
-</dd>
-<dt id="grid.relative_center_bboxes"><code class="name flex">
-<span>def <span class="ident">relative_center_bboxes</span></span>(<span>h, w, batch_slices, batch_bboxes, device=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>For each location, sets the distance between each size of the bounding box and each location (see the <a href="https://arxiv.org/abs/1904.01355">FCOS paper</a>).</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def relative_center_bboxes(h, w, batch_slices, batch_bboxes, device=None):
-    &#39;&#39;&#39;For each location, sets the distance between each size of the bounding box and each location (see the [FCOS paper](https://arxiv.org/abs/1904.01355)).&#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, 4, h, w), dtype=torch.float32, device=device)
-    for i, (slices, bboxes) in enumerate(zip(batch_slices, batch_bboxes)):
-        for (yy, xx), bbox in zip(slices, bboxes):
-            _xx = torch.arange(xx.start, xx.stop, dtype=torch.float32, device=device)[None, :]
-            _yy = torch.arange(yy.start, yy.stop, dtype=torch.float32, device=device)[:, None]
-            grid[i, 0, yy, xx] = (_xx/w) - bbox[0]
-            grid[i, 1, yy, xx] = (_yy/h) - bbox[1]
-            grid[i, 2, yy, xx] = bbox[2] - (_xx/w)
-            grid[i, 3, yy, xx] = bbox[3] - (_yy/h)
-    return grid</code></pre>
-</details>
-</dd>
-<dt id="grid.scores"><code class="name flex">
-<span>def <span class="ident">scores</span></span>(<span>h, w, batch_slices, device=None)</span>
+<dt id="grid.where"><code class="name flex">
+<span>def <span class="ident">where</span></span>(<span>batch_slices, grid_size, device=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.</p></div>
@@ -367,64 +201,14 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scores(h, w, batch_slices, device=None):
-    &#39;&#39;&#39;Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.&#39;&#39;&#39;
+<pre><code class="python">def where(batch_slices, grid_size, device=None):
+    &#39;&#39;&#39; Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy. &#39;&#39;&#39;
     n = len(batch_slices)
-    grid = torch.zeros((n, 1, h, w), dtype=torch.float32, device=device)
+    grid = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
     for i, slices in enumerate(batch_slices):
         for yy, xx in slices:
-            grid[i, :, yy, xx] = 1
+            grid[i, yy, xx] = True
     return grid</code></pre>
-</details>
-</dd>
-<dt id="grid.slices_all_locations"><code class="name flex">
-<span>def <span class="ident">slices_all_locations</span></span>(<span>h, w, batch_bboxes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Choose all grid locations that contain the entirety of the object, even if partially.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def slices_all_locations(h, w, batch_bboxes):
-    &#39;&#39;&#39;Choose all grid locations that contain the entirety of the object, even if partially.&#39;&#39;&#39;
-    return [[(
-        slice(int(torch.floor(bbox[1]*h)), int(torch.ceil(bbox[3]*h))),
-        slice(int(torch.floor(bbox[0]*w)), int(torch.ceil(bbox[2]*w))),
-    ) for bbox in bboxes] for bboxes in batch_bboxes]</code></pre>
-</details>
-</dd>
-<dt id="grid.slices_almost_all_locations"><code class="name flex">
-<span>def <span class="ident">slices_almost_all_locations</span></span>(<span>h, w, batch_bboxes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Choose all grid locations that contain at least half of the object, which seems to be what FCOS does because they mention that "regression targets are always positive" therefore the offset computed afterwards needs to contain the center.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def slices_almost_all_locations(h, w, batch_bboxes):
-    &#39;&#39;&#39;Choose all grid locations that contain at least half of the object, which seems to be what FCOS does because they mention that &#34;regression targets are always positive&#34; therefore the offset computed afterwards needs to contain the center.&#39;&#39;&#39;
-    return [[(
-        slice(round(bbox[1]*h), round(bbox[3]*h)),
-        slice(round(bbox[0]*w), round(bbox[2]*w)),
-    ) for bbox in bboxes] for bboxes in batch_bboxes]</code></pre>
-</details>
-</dd>
-<dt id="grid.slices_center_locations"><code class="name flex">
-<span>def <span class="ident">slices_center_locations</span></span>(<span>h, w, batch_bboxes)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Place the object only on the center location of the object (similar to YOLOv3).</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def slices_center_locations(h, w, batch_bboxes):
-    &#39;&#39;&#39;Place the object only on the center location of the object (similar to YOLOv3).&#39;&#39;&#39;
-    batch_yy = ((int(((bbox[1]+bbox[3])/2)*h) for bbox in bboxes) for bboxes in batch_bboxes)
-    batch_xx = ((int(((bbox[0]+bbox[2])/2)*w) for bbox in bboxes) for bboxes in batch_bboxes)
-    return [[(slice(y, y+1), slice(x, x+1)) for y, x in zip(yy, xx)] for yy, xx in zip(batch_yy, batch_xx)]</code></pre>
 </details>
 </dd>
 </dl>
@@ -439,19 +223,14 @@ if __name__ == &#39;__main__&#39;:  # DEBUG
 </div>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="grid.classes" href="#grid.classes">classes</a></code></li>
-<li><code><a title="grid.inv_classes" href="#grid.inv_classes">inv_classes</a></code></li>
-<li><code><a title="grid.inv_offset_logsize_bboxes" href="#grid.inv_offset_logsize_bboxes">inv_offset_logsize_bboxes</a></code></li>
-<li><code><a title="grid.inv_relative_bboxes" href="#grid.inv_relative_bboxes">inv_relative_bboxes</a></code></li>
-<li><code><a title="grid.inv_scores" href="#grid.inv_scores">inv_scores</a></code></li>
-<li><code><a title="grid.offset_logsize_bboxes" href="#grid.offset_logsize_bboxes">offset_logsize_bboxes</a></code></li>
-<li><code><a title="grid.relative_bboxes" href="#grid.relative_bboxes">relative_bboxes</a></code></li>
-<li><code><a title="grid.relative_center_bboxes" href="#grid.relative_center_bboxes">relative_center_bboxes</a></code></li>
-<li><code><a title="grid.scores" href="#grid.scores">scores</a></code></li>
-<li><code><a title="grid.slices_all_locations" href="#grid.slices_all_locations">slices_all_locations</a></code></li>
-<li><code><a title="grid.slices_almost_all_locations" href="#grid.slices_almost_all_locations">slices_almost_all_locations</a></code></li>
-<li><code><a title="grid.slices_center_locations" href="#grid.slices_center_locations">slices_center_locations</a></code></li>
+<ul class="two-column">
+<li><code><a title="grid.select" href="#grid.select">select</a></code></li>
+<li><code><a title="grid.slice_all" href="#grid.slice_all">slice_all</a></code></li>
+<li><code><a title="grid.slice_all_center" href="#grid.slice_all_center">slice_all_center</a></code></li>
+<li><code><a title="grid.slice_center" href="#grid.slice_center">slice_center</a></code></li>
+<li><code><a title="grid.slices" href="#grid.slices">slices</a></code></li>
+<li><code><a title="grid.to_grid" href="#grid.to_grid">to_grid</a></code></li>
+<li><code><a title="grid.where" href="#grid.where">where</a></code></li>
 </ul>
 </li>
 </ul>

@@ -1,0 +1,48 @@
+'''
+Converts lists or grids into a different space more appropriate to the task.
+'''
+
+import torch
+
+def offset_logsize_bboxes(grid, img_size):
+    ''' Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. '''
+    gh, gw = grid.shape[2:]
+    ih, iw = img_size
+    xc = (grid[:, 0] + grid[:, 2]) / 2
+    yc = (grid[:, 1] + grid[:, 3]) / 2
+    bw = grid[:, 2] - grid[:, 0]
+    bh = grid[:, 3] - grid[:, 1]
+    return torch.stack((
+        (xc % (iw/gw)) * (gw/iw), (yc % (ih/gh)) * (gh/ih),
+        torch.log(bw), torch.log(bw)), 1)
+
+def inv_offset_logsize_bboxes(grid, img_size):
+    ''' Invert the grid created by the function with the same name. '''
+    device = grid.device
+    gh, gw = grid.shape[2:]
+    ih, iw = img_size
+    xx = torch.arange(0, gw, dtype=torch.float32, device=device)[None, :]
+    yy = torch.arange(0, gh, dtype=torch.float32, device=device)[:, None]
+    xc = (xx+grid[:, 0]) * (iw/gw)
+    yc = (yy+grid[:, 1]) * (ih/gh)
+    bw = torch.exp(grid[:, 2])
+    bh = torch.exp(grid[:, 3])
+    return torch.stack((xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2), 1)
+
+def rel_bboxes(grid, img_size, corner_offset=0.5):
+    ''' Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-verse. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute <=> relative). '''
+    device = grid.device
+    gh, gw = grid.shape[2:]
+    ih, iw = img_size
+    yy = (torch.arange(gh, dtype=torch.float32, device=device) + corner_offset) * (ih/gh)
+    xx = (torch.arange(gw, dtype=torch.float32, device=device) + corner_offset) * (iw/gw)
+    xx, yy = torch.meshgrid(yy, xx, indexing='xy')
+    mesh_grid = torch.stack((xx, yy, xx, yy))[None]
+    sign = torch.tensor((-1, -1, 1, 1), dtype=torch.float32, device=device)[None, :, None, None]
+    return mesh_grid + sign*grid
+
+def centerness(rel_bboxes):
+    ''' Applies `centerness` as in the FCOS paper. Notice that the given `rel_bboxes` must already be in `rel_bboxes()` space. This function works if `rel_bboxes` is already the selected list or a grid. '''
+    h = torch.minimum(rel_bboxes[:, 0], rel_bboxes[:, 2]) / torch.maximum(rel_bboxes[:, 0], rel_bboxes[:, 2])
+    v = torch.minimum(rel_bboxes[:, 1], rel_bboxes[:, 3]) / torch.maximum(rel_bboxes[:, 1], rel_bboxes[:, 3])
+    return torch.sqrt(h*v)[:, None]

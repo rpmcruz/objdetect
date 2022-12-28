@@ -1,11 +1,11 @@
 '''
-Implementation of Precision-Recall and AP metrics.
+Implementation of Precision-Recall and AP metrics. This module is not yet fully tested, we recommend using torchmetrics.
 '''
 
 import torch
 
 def IoU(bbox1, bbox2):
-    '''Intersection over union between two bounding boxes.'''
+    ''' Intersection over union between two bounding boxes. '''
     x0 = torch.maximum(bbox1[0], bbox2[0])
     y0 = torch.maximum(bbox1[1], bbox2[1])
     x1 = torch.minimum(bbox1[2], bbox2[2])
@@ -17,7 +17,7 @@ def IoU(bbox1, bbox2):
     return I / U
 
 def IoUs(bbox1, bboxes2):
-    '''Intersection over union between one bounding box against a list of others.'''
+    ''' Intersection over union between one bounding box against a list of others. '''
     x0 = torch.maximum(bbox1[0], bboxes2[:, 0])
     y0 = torch.maximum(bbox1[1], bboxes2[:, 1])
     x1 = torch.minimum(bbox1[2], bboxes2[:, 2])
@@ -29,7 +29,7 @@ def IoUs(bbox1, bboxes2):
     return I / U
 
 def which_correct(preds, true, iou_threshold):
-    '''For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not.'''
+    ''' For each bounding box in all image, computes if it was correctly predicted (that is, IoU is over the given threshold). For each true bounding box, it returns a boolean list of the same size indicating whether there is a matching prediction or not. '''
     return [
         [len(t['bboxes']) > 0 and torch.any(IoUs(bb, t['bboxes']) >= iou_threshold)
             for bb in p['bboxes']]
@@ -37,7 +37,7 @@ def which_correct(preds, true, iou_threshold):
     ]
 
 def precision_recall_curve(preds, true, iou_threshold):
-    '''Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes. `preds` and `true` are lists of dictionaries containing at least: scores and bboxes. A good explanation of this metric: https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173.'''
+    ''' Produces a precision-recall curve, given the has-object probabilities and respective bounding boxes. `preds` and `true` are lists of dictionaries containing at least: scores and bboxes. A good explanation of this metric: https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173. '''
     assert len(preds) == len(true), f'number of preds ({len(preds)}) must match number of ground-truth ({len(true)})'
     # match bounding by whether they are correct
     correct = which_correct(preds, true, iou_threshold)
@@ -61,24 +61,24 @@ def precision_recall_curve(preds, true, iou_threshold):
     return precision, recall
 
 def AP(preds, true, iou_threshold):
-    '''Produces an AP-score based on the precision-recall curve.'''
+    ''' Produces an AP-score based on the precision-recall curve. '''
     precision, recall = precision_recall_curve(preds, true, iou_threshold)
     return torch.sum(torch.diff(recall) * precision[1:])
 
 def filter_class(klass, preds, true, keys):
-    '''Utility to filter a given class.'''
+    ''' Utility to filter a given class. '''
     preds = [{k: p[k][p['classes'] == klass] for k in keys} for p in preds]
     true = [{k: t[k][t['classes'] == klass] for k in keys} for t in true]
     return preds, true
 
 def mAP(preds, true, iou_threshold):
-    '''mAP = average AP for all classes.'''
+    ''' mAP = average AP for all classes. '''
     assert 'classes' in preds[0] and 'classes' in true[0]
     nclasses = 1+max([max(t['classes']) if len(t['classes']) else 0 for t in true])
     return sum(AP(*filter_class(klass, preds, true, ['scores', 'bboxes']), iou_threshold) for klass in range(nclasses)) / nclasses
 
 def mAP_ious(preds, true, iou_thresholds=torch.arange(0.05, 1, 0.05)):
-    '''mAP = average AP for all classes and for a list of IoU thresholds. This is the metric used by MS-COCO. By default, we evaluate IoU@[0.05,0.95,0.05].'''
+    ''' mAP = average AP for all classes and for a list of IoU thresholds. This is the metric used by MS-COCO. By default, we evaluate IoU@[0.05,0.95,0.05]. '''
     return torch.mean([mAP(preds, true, th) for th in iou_thresholds])
 
 if __name__ == '__main__':  # DEBUG
