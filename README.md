@@ -83,6 +83,8 @@ class Grid(torch.nn.Module):
         self.centerness = torch.nn.Conv2d(in_channels, 1, 1)
 
     def forward(self, x):
+        # like FCOS, the network is predicting bboxes in relative terms, we need
+        # to convert to absolute bboxes because the loss requires so.
         bboxes = torch.exp(self.bboxes(x))
         bboxes = od.transforms.rel_bboxes(bboxes, self.img_size)
         return {'labels': self.classes(x), 'bboxes': bboxes,
@@ -90,43 +92,39 @@ class Grid(torch.nn.Module):
 
     def post_process(self, preds, threshold=0.05):
         scores, labels = torch.sigmoid(preds['labels']).max(1, keepdim=True)
-        centerness = torch.sigmoid(preds['centerness'])
-        ix = scores[:, 0] >= threshold
-        # as in FCOS, centerness will help NMS choose the best bbox.
-        scores = scores * centerness
         bboxes = preds['bboxes']
+        centerness = torch.sigmoid(preds['centerness'])
+        mask = scores[:, 0] >= threshold
+        # like FCOS, centerness will help NMS choose the best bbox.
+        scores = scores * centerness
         return {
-            'scores': od.grid.select(ix, scores, True),
-            'bboxes': od.grid.select(ix, bboxes, True),
-            'labels': od.grid.select(ix, labels, True),
+            'scores': od.grid.mask_select(mask, scores, True),
+            'bboxes': od.grid.mask_select(mask, bboxes, True),
+            'labels': od.grid.mask_select(mask, labels, True),
         }
 
     def compute_loss(self, preds, targets):
-        device = preds['bboxes'].device
         grid_size = preds['bboxes'].shape[2:]
-        # convert everything to a grid
-        slices = od.grid.slices(od.grid.slice_all_center, targets['bboxes'],
-            grid_size, self.img_size)
-        ix = od.grid.where(slices, grid_size, device)
-        target_bboxes = od.grid.to_grid(targets['bboxes'], 4, slices, grid_size, device)
-        target_bboxes_rel = od.transforms.rel_bboxes(target_bboxes, self.img_size)
-        target_labels = [l[:, None] for l in targets['labels']]
-        target_labels = od.grid.to_grid(target_labels, 1, slices, grid_size, device)
-        # select what we want from the grid
-        target_bboxes = od.grid.select(ix, target_bboxes, False)
-        target_bboxes_rel = od.grid.select(ix, target_bboxes_rel, False)
-        target_labels = od.grid.select(ix, target_labels, False)
-        pred_bboxes = od.grid.select(ix, preds['bboxes'], False)
-        pred_labels = od.grid.select(ix, preds['labels'], False)
-        pred_centerness = od.grid.select(ix, preds['centerness'], False)
-        # compute losses (either using the grid directly or the selection)
-        # like FCOS, we treat each class as an independent classifier
-        target_labels = torch.nn.functional.one_hot(target_labels[:, 0].long(),
+        mask, indices = od.grid.where(od.grid.slice_all_center, targets['bboxes'], grid_size, self.img_size)
+        # preds grid -> list
+        pred_bboxes = od.grid.mask_select(mask, preds['bboxes'])
+        pred_labels = od.grid.mask_select(mask, preds['labels'])
+        pred_centerness = od.grid.mask_select(mask, preds['centerness'])
+        # targets list -> list
+        target_bboxes = od.grid.indices_select(indices, targets['bboxes'])
+        target_labels = od.grid.indices_select(indices, targets['labels'])
+        # labels: must be one-hot since we use independent classifiers
+        target_labels = torch.nn.functional.one_hot(target_labels.long(),
             preds['labels'].shape[1]).float()
-        target_centerness = od.transforms.centerness(target_bboxes_rel)
+        # compute centerness: requires doing the transformation in grid-space
+        target_bboxes_grid = od.grid.to_grid(mask, indices, targets['bboxes'])
+        target_rel_bboxes = od.transforms.rel_bboxes(target_bboxes_grid, self.img_size)
+        target_centerness = od.transforms.centerness(target_rel_bboxes)
+        target_centerness = od.grid.mask_select(mask, target_centerness)
+        # compute losses
         return bboxes_loss(pred_bboxes, target_bboxes).mean() + \
-            centerness_loss(pred_centerness, target_centerness) + \
-            labels_loss(pred_labels, target_labels).mean()
+            labels_loss(pred_labels, target_labels).mean() + \
+            centerness_loss(pred_centerness, target_centerness)
 
 class Model(torch.nn.Module):
     def __init__(self, nclasses, img_size):
@@ -146,7 +144,7 @@ class Model(torch.nn.Module):
         return self.grid.compute_loss(preds, targets)
 ```
 
-**Losses:** We currently do not deploy any losses since they are currently implemented in [torchvision](https://pytorch.org/vision/stable/ops.html#losses). We recommend using those losses. Notice that those losses receive the inputs in the format (N,4), not as a grid; that's why in the `Grid` code, we use `od.grid.select()` to convert the grid back to lists.
+**Losses:** We currently do not deploy any losses since many are already implemented in [torchvision](https://pytorch.org/vision/stable/ops.html#losses). We recommend using those losses.
 
 **Training:** Again, here is some boiler-plate code for creating your own training loop.
 
@@ -156,6 +154,8 @@ for epoch in range(args.epochs):
     tic = time()
     avg_loss = 0
     for images, targets in tr:
+        targets['bboxes'] = [bb.float() for bb in targets['bboxes']]
+        targets = {k: [v.to(device) for v in l] for k, l in targets.items()}
         preds = model(images.to(device))
         loss_value = model.compute_loss(preds, targets)
         opt.zero_grad()
@@ -171,6 +171,7 @@ for epoch in range(args.epochs):
 For evaluation, you just need to do:
 
 ```python
+model.eval()
 preds = model(images.to(device))
 preds = model.post_process(preds)
 preds = od.post.NMS(preds)
