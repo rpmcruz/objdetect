@@ -30,7 +30,7 @@ The package is divided into the following components:
 
 ## Getting Started
 
-A notebook example is provided in the `src` folder which provides boiler-plate code to get you started. The notebook is mainly inspired by [FCOS](https://arxiv.org/abs/1904.01355). Following the PyTorch tradition, this package does not try to do too much behind the scenes.
+A [notebook example](https://github.com/rpmcruz/objdetect/blob/main/src/example.ipynb) is provided in the `src` folder which provides boiler-plate code to get you started. The notebook is mainly inspired by [FCOS](https://arxiv.org/abs/1904.01355). Following the PyTorch tradition, this package does not try to do too much behind the scenes.
 
 ```python
 import objdetect as od
