@@ -144,7 +144,7 @@ class Model(torch.nn.Module):
         return self.grid.compute_loss(preds, targets)
 ```
 
-**Losses:** We currently do not deploy any losses since they are currently implemented in [torchvision](https://pytorch.org/vision/stable/ops.html#losses). We recommend using those losses. Notice that those losses receive the inputs in the format (N,4), not as a grid; that's why in the `Grid` code, we use `od.grid.select()` to convert the grid back to lists.
+**Losses:** We currently do not deploy any losses since many are already implemented in [torchvision](https://pytorch.org/vision/stable/ops.html#losses). We recommend using those losses. Notice that those losses receive the inputs in the format (N,4), not as a grid; that's why in the `Grid` code, we use `od.grid.select()` to convert the grid back to lists.
 
 **Training:** Again, here is some boiler-plate code for creating your own training loop.
 
