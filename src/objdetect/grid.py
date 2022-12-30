@@ -57,5 +57,6 @@ def to_grid(mask, indices, batch_data):
     dtype = batch_data[0].dtype
     grid = torch.zeros((mask.shape[0], channels, *mask.shape[1:]), dtype=dtype, device=device)
     for g, m, d, i in zip(grid, mask, batch_data, indices):
-        g[:, m] = d[i].T
+        if len(i):
+            g[:, m] = d[i].T
     return grid
