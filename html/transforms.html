@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>transforms API documentation</title>
-<meta name="description" content="Converts lists or grids into a different space more appropriate to the task." />
+<meta name="description" content="Converts lists or grids into a different space more appropriate to the task. Notice that some of these transformations require the input to be a grid, …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,28 +22,28 @@
 <h1 class="title">Module <code>transforms</code></h1>
 </header>
 <section id="section-intro">
-<p>Converts lists or grids into a different space more appropriate to the task.</p>
+<p>Converts lists or grids into a different space more appropriate to the task. Notice that some of these transformations require the input to be a grid, while others are more flexible.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#39;&#39;&#39;
-Converts lists or grids into a different space more appropriate to the task.
+Converts lists or grids into a different space more appropriate to the task. Notice that some of these transformations require the input to be a grid, while others are more flexible.
 &#39;&#39;&#39;
 
 import torch
 
-def offset_logsize_bboxes(grid, img_size):
+def offset_logsize_bboxes(data, grid_size, img_size):
     &#39;&#39;&#39; Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. &#39;&#39;&#39;
-    gh, gw = grid.shape[2:]
+    gh, gw = grid_size
     ih, iw = img_size
     xc = (grid[:, 0] + grid[:, 2]) / 2
     yc = (grid[:, 1] + grid[:, 3]) / 2
-    bw = grid[:, 2] - grid[:, 0]
-    bh = grid[:, 3] - grid[:, 1]
-    return torch.stack((
-        (xc % (iw/gw)) * (gw/iw), (yc % (ih/gh)) * (gh/ih),
-        torch.log(bw), torch.log(bw)), 1)
+    xo = (xc % (iw/gw)) * (gw/iw)
+    yo = (yc % (ih/gh)) * (gh/ih)
+    bw = torch.log(grid[:, 2] - grid[:, 0])
+    bh = torch.log(grid[:, 3] - grid[:, 1])
+    return torch.stack((xo, yo, bw, bh), 1)
 
 def inv_offset_logsize_bboxes(grid, img_size):
     &#39;&#39;&#39; Invert the grid created by the function with the same name. &#39;&#39;&#39;
@@ -59,7 +59,7 @@ def inv_offset_logsize_bboxes(grid, img_size):
     return torch.stack((xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2), 1)
 
 def rel_bboxes(grid, img_size, corner_offset=0.5):
-    &#39;&#39;&#39; Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-verse. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute &lt;=&gt; relative). &#39;&#39;&#39;
+    &#39;&#39;&#39; Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-versa. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute &lt;=&gt; relative). &#39;&#39;&#39;
     device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size
@@ -124,7 +124,7 @@ def centerness(rel_bboxes):
 </details>
 </dd>
 <dt id="transforms.offset_logsize_bboxes"><code class="name flex">
-<span>def <span class="ident">offset_logsize_bboxes</span></span>(<span>grid, img_size)</span>
+<span>def <span class="ident">offset_logsize_bboxes</span></span>(<span>data, grid_size, img_size)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <a href="https://arxiv.org/abs/1804.02767">YOLOv3</a>. Please notice this only makes sense if slices=slice_center_locations.</p></div>
@@ -132,30 +132,30 @@ def centerness(rel_bboxes):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def offset_logsize_bboxes(grid, img_size):
+<pre><code class="python">def offset_logsize_bboxes(data, grid_size, img_size):
     &#39;&#39;&#39; Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. &#39;&#39;&#39;
-    gh, gw = grid.shape[2:]
+    gh, gw = grid_size
     ih, iw = img_size
     xc = (grid[:, 0] + grid[:, 2]) / 2
     yc = (grid[:, 1] + grid[:, 3]) / 2
-    bw = grid[:, 2] - grid[:, 0]
-    bh = grid[:, 3] - grid[:, 1]
-    return torch.stack((
-        (xc % (iw/gw)) * (gw/iw), (yc % (ih/gh)) * (gh/ih),
-        torch.log(bw), torch.log(bw)), 1)</code></pre>
+    xo = (xc % (iw/gw)) * (gw/iw)
+    yo = (yc % (ih/gh)) * (gh/ih)
+    bw = torch.log(grid[:, 2] - grid[:, 0])
+    bh = torch.log(grid[:, 3] - grid[:, 1])
+    return torch.stack((xo, yo, bw, bh), 1)</code></pre>
 </details>
 </dd>
 <dt id="transforms.rel_bboxes"><code class="name flex">
 <span>def <span class="ident">rel_bboxes</span></span>(<span>grid, img_size, corner_offset=0.5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Converts the grid of bounding boxes to relative bounding boxes (see FCOS l<em>,t</em>,r<em>,b</em>), and vice-verse. If you use 0-1 normalized bounding boxes, then specify <code>img_size=(1,1)</code>. Notice that this function can be called to transform in both directions (absolute &lt;=&gt; relative).</p></div>
+<div class="desc"><p>Converts the grid of bounding boxes to relative bounding boxes (see FCOS l<em>,t</em>,r<em>,b</em>), and vice-versa. If you use 0-1 normalized bounding boxes, then specify <code>img_size=(1,1)</code>. Notice that this function can be called to transform in both directions (absolute &lt;=&gt; relative).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def rel_bboxes(grid, img_size, corner_offset=0.5):
-    &#39;&#39;&#39; Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-verse. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute &lt;=&gt; relative). &#39;&#39;&#39;
+    &#39;&#39;&#39; Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-versa. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute &lt;=&gt; relative). &#39;&#39;&#39;
     device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size

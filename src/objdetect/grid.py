@@ -21,35 +21,41 @@ def slice_all_center(bbox):
     ''' Choose all grid locations where the center contains the object, as FCOS does, so that the bounding boxes offsets relative to the center are always positive. If the bounding boxes are normalized then you can use img_size=(1,1). '''
     return torch.round(bbox)
 
-def slices(slicing, batch_bboxes, grid_size, img_size):
-    ''' Grid with true on the locations where the object is according to the slicing `criterium`. If you use 0-1 normalized bboxes, then give `img_size=(1,1)`. '''
+def where(slicing, batch_bboxes, grid_size, img_size):
+    ''' Following the given `slicing` function strategy, returns two things: a boolean grid mask where objects are located, and a list of indices of which bounding box was used. The mask can be used with `mask_select()` to convert a grid to a list, and the indices can be used with `indices_select()` to convert a list to another list matching the elements selected from the grid. '''
     device = batch_bboxes[0].device
-    scale = torch.tensor([grid_size[1]/img_size[1], grid_size[0]/img_size[0]]*2, device=device)
-    to_slice = lambda s: (slice(int(s[1]), int(s[3])), slice(int(s[0]), int(s[2])))
-    return [[to_slice(slicing(bbox*scale)) for bbox in bboxes]
-        for bboxes in batch_bboxes]
+    scale = torch.tensor([grid_size[1]/img_size[1],
+        grid_size[0]/img_size[0]]*2, device=device)
+    n = len(batch_bboxes)
+    mask = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
+    indices = torch.zeros((n, *grid_size), dtype=torch.int64, device=device)
+    for i, bboxes in enumerate(batch_bboxes):
+        for j, bbox in enumerate(bboxes):
+            s = slicing(bbox*scale)
+            yy = slice(int(s[1]), int(s[3]))
+            xx = slice(int(s[0]), int(s[2]))
+            mask[i, yy, xx] = True
+            indices[i, yy, xx] = j
+    indices = [i[m] for i, m in zip(indices, mask)]
+    return mask, indices
 
-def where(batch_slices, grid_size, device=None):
-    ''' Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy. '''
-    n = len(batch_slices)
-    grid = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
-    for i, slices in enumerate(batch_slices):
-        for yy, xx in slices:
-            grid[i, yy, xx] = True
-    return grid
-
-def to_grid(batch_data, channels, batch_slices, grid_size, device=None):
-    ''' Maps the `batch_data` onto a grid of size `grid_size`, according to the `batch_slices`. '''
-    n = len(batch_slices)
-    grid = torch.zeros((n, channels, *grid_size), dtype=torch.float32, device=device)
-    for i, (slices, data) in enumerate(zip(batch_slices, batch_data)):
-        for (yy, xx), d in zip(slices, data):
-            grid[i, :, yy, xx] = d[:, None, None]
-    return grid
-
-def select(where, grid, keep_batches):
-    ''' Select the grid components where `where` is true. If `keep_batches=True`, then the result will be a list of tensors. '''
+def mask_select(mask, grid, keep_batches=False):
+    ''' Select the grid components where `mask` is true. If `keep_batches=True`, then the result will be a list of tensors. '''
     grid = grid.permute(0, 2, 3, 1)  # NCHW => NHWC
     if keep_batches:
-        return [g[w, :] for w, g in zip(where, grid)]
-    return grid[where, :]
+        return [g[m, :] for g, m in zip(grid, mask)]
+    return grid[mask, :]
+
+def indices_select(indices, data):
+    ''' Returns a tensor with the data in the same form as the indices. '''
+    return torch.cat([d[i] for d, i in zip(data, indices)])
+
+def to_grid(mask, indices, batch_data):
+    ''' Converts the given `batch_data` onto a grid, according to the `mask` and `indices` selected. Usually, you can avoid this function and work entirely in list space. '''
+    device = mask.device
+    channels = batch_data[0].shape[1]
+    dtype = batch_data[0].dtype
+    grid = torch.zeros((mask.shape[0], channels, *mask.shape[1:]), dtype=dtype, device=device)
+    for g, m, d, i in zip(grid, mask, batch_data, indices):
+        g[:, m] = d[i].T
+    return grid

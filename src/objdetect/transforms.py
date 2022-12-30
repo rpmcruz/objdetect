@@ -1,20 +1,20 @@
 '''
-Converts lists or grids into a different space more appropriate to the task.
+Converts lists or grids into a different space more appropriate to the task. Notice that some of these transformations require the input to be a grid, while others are more flexible.
 '''
 
 import torch
 
-def offset_logsize_bboxes(grid, img_size):
+def offset_logsize_bboxes(data, grid_size, img_size):
     ''' Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. '''
-    gh, gw = grid.shape[2:]
+    gh, gw = grid_size
     ih, iw = img_size
     xc = (grid[:, 0] + grid[:, 2]) / 2
     yc = (grid[:, 1] + grid[:, 3]) / 2
-    bw = grid[:, 2] - grid[:, 0]
-    bh = grid[:, 3] - grid[:, 1]
-    return torch.stack((
-        (xc % (iw/gw)) * (gw/iw), (yc % (ih/gh)) * (gh/ih),
-        torch.log(bw), torch.log(bw)), 1)
+    xo = (xc % (iw/gw)) * (gw/iw)
+    yo = (yc % (ih/gh)) * (gh/ih)
+    bw = torch.log(grid[:, 2] - grid[:, 0])
+    bh = torch.log(grid[:, 3] - grid[:, 1])
+    return torch.stack((xo, yo, bw, bh), 1)
 
 def inv_offset_logsize_bboxes(grid, img_size):
     ''' Invert the grid created by the function with the same name. '''
@@ -30,7 +30,7 @@ def inv_offset_logsize_bboxes(grid, img_size):
     return torch.stack((xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2), 1)
 
 def rel_bboxes(grid, img_size, corner_offset=0.5):
-    ''' Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-verse. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute <=> relative). '''
+    ''' Converts the grid of bounding boxes to relative bounding boxes (see FCOS l*,t*,r*,b*), and vice-versa. If you use 0-1 normalized bounding boxes, then specify `img_size=(1,1)`. Notice that this function can be called to transform in both directions (absolute <=> relative). '''
     device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size

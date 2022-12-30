@@ -50,38 +50,44 @@ def slice_all_center(bbox):
     &#39;&#39;&#39; Choose all grid locations where the center contains the object, as FCOS does, so that the bounding boxes offsets relative to the center are always positive. If the bounding boxes are normalized then you can use img_size=(1,1). &#39;&#39;&#39;
     return torch.round(bbox)
 
-def slices(slicing, batch_bboxes, grid_size, img_size):
-    &#39;&#39;&#39; Grid with true on the locations where the object is according to the slicing `criterium`. If you use 0-1 normalized bboxes, then give `img_size=(1,1)`. &#39;&#39;&#39;
+def where(slicing, batch_bboxes, grid_size, img_size):
+    &#39;&#39;&#39; Following the given `slicing` function strategy, returns two things: a boolean grid mask where objects are located, and a list of indices of which bounding box was used. The mask can be used with `mask_select()` to convert a grid to a list, and the indices can be used with `indices_select()` to convert a list to another list matching the elements selected from the grid. &#39;&#39;&#39;
     device = batch_bboxes[0].device
-    scale = torch.tensor([grid_size[1]/img_size[1], grid_size[0]/img_size[0]]*2, device=device)
-    to_slice = lambda s: (slice(int(s[1]), int(s[3])), slice(int(s[0]), int(s[2])))
-    return [[to_slice(slicing(bbox*scale)) for bbox in bboxes]
-        for bboxes in batch_bboxes]
+    scale = torch.tensor([grid_size[1]/img_size[1],
+        grid_size[0]/img_size[0]]*2, device=device)
+    n = len(batch_bboxes)
+    mask = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
+    indices = torch.zeros((n, *grid_size), dtype=torch.int64, device=device)
+    for i, bboxes in enumerate(batch_bboxes):
+        for j, bbox in enumerate(bboxes):
+            s = slicing(bbox*scale)
+            yy = slice(int(s[1]), int(s[3]))
+            xx = slice(int(s[0]), int(s[2]))
+            mask[i, yy, xx] = True
+            indices[i, yy, xx] = j
+    indices = [i[m] for i, m in zip(indices, mask)]
+    return mask, indices
 
-def where(batch_slices, grid_size, device=None):
-    &#39;&#39;&#39; Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy. &#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
-    for i, slices in enumerate(batch_slices):
-        for yy, xx in slices:
-            grid[i, yy, xx] = True
-    return grid
-
-def to_grid(batch_data, channels, batch_slices, grid_size, device=None):
-    &#39;&#39;&#39; Maps the `batch_data` onto a grid of size `grid_size`, according to the `batch_slices`. &#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, channels, *grid_size), dtype=torch.float32, device=device)
-    for i, (slices, data) in enumerate(zip(batch_slices, batch_data)):
-        for (yy, xx), d in zip(slices, data):
-            grid[i, :, yy, xx] = d[:, None, None]
-    return grid
-
-def select(where, grid, keep_batches):
-    &#39;&#39;&#39; Select the grid components where `where` is true. If `keep_batches=True`, then the result will be a list of tensors. &#39;&#39;&#39;
+def mask_select(mask, grid, keep_batches=False):
+    &#39;&#39;&#39; Select the grid components where `mask` is true. If `keep_batches=True`, then the result will be a list of tensors. &#39;&#39;&#39;
     grid = grid.permute(0, 2, 3, 1)  # NCHW =&gt; NHWC
     if keep_batches:
-        return [g[w, :] for w, g in zip(where, grid)]
-    return grid[where, :]</code></pre>
+        return [g[m, :] for g, m in zip(grid, mask)]
+    return grid[mask, :]
+
+def indices_select(indices, data):
+    &#39;&#39;&#39; Returns a tensor with the data in the same form as the indices. &#39;&#39;&#39;
+    return torch.cat([d[i] for d, i in zip(data, indices)])
+
+def to_grid(mask, indices, batch_data):
+    &#39;&#39;&#39; Converts the given `batch_data` onto a grid, according to the `mask` and `indices` selected. Usually, you can avoid this function and work entirely in list space. &#39;&#39;&#39;
+    device = mask.device
+    channels = batch_data[0].shape[1]
+    dtype = batch_data[0].dtype
+    grid = torch.zeros((mask.shape[0], channels, *mask.shape[1:]), dtype=dtype, device=device)
+    for g, m, d, i in zip(grid, mask, batch_data, indices):
+        g[:, m] = d[i].T
+    return grid</code></pre>
 </details>
 </section>
 <section>
@@ -91,21 +97,35 @@ def select(where, grid, keep_batches):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="grid.select"><code class="name flex">
-<span>def <span class="ident">select</span></span>(<span>where, grid, keep_batches)</span>
+<dt id="grid.indices_select"><code class="name flex">
+<span>def <span class="ident">indices_select</span></span>(<span>indices, data)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Select the grid components where <code><a title="grid.where" href="#grid.where">where()</a></code> is true. If <code>keep_batches=True</code>, then the result will be a list of tensors.</p></div>
+<div class="desc"><p>Returns a tensor with the data in the same form as the indices.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def select(where, grid, keep_batches):
-    &#39;&#39;&#39; Select the grid components where `where` is true. If `keep_batches=True`, then the result will be a list of tensors. &#39;&#39;&#39;
+<pre><code class="python">def indices_select(indices, data):
+    &#39;&#39;&#39; Returns a tensor with the data in the same form as the indices. &#39;&#39;&#39;
+    return torch.cat([d[i] for d, i in zip(data, indices)])</code></pre>
+</details>
+</dd>
+<dt id="grid.mask_select"><code class="name flex">
+<span>def <span class="ident">mask_select</span></span>(<span>mask, grid, keep_batches=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Select the grid components where <code>mask</code> is true. If <code>keep_batches=True</code>, then the result will be a list of tensors.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mask_select(mask, grid, keep_batches=False):
+    &#39;&#39;&#39; Select the grid components where `mask` is true. If `keep_batches=True`, then the result will be a list of tensors. &#39;&#39;&#39;
     grid = grid.permute(0, 2, 3, 1)  # NCHW =&gt; NHWC
     if keep_batches:
-        return [g[w, :] for w, g in zip(where, grid)]
-    return grid[where, :]</code></pre>
+        return [g[m, :] for g, m in zip(grid, mask)]
+    return grid[mask, :]</code></pre>
 </details>
 </dd>
 <dt id="grid.slice_all"><code class="name flex">
@@ -155,60 +175,52 @@ def select(where, grid, keep_batches):
     return (cx, cy, cx+1, cy+1)</code></pre>
 </details>
 </dd>
-<dt id="grid.slices"><code class="name flex">
-<span>def <span class="ident">slices</span></span>(<span>slicing, batch_bboxes, grid_size, img_size)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Grid with true on the locations where the object is according to the slicing <code>criterium</code>. If you use 0-1 normalized bboxes, then give <code>img_size=(1,1)</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def slices(slicing, batch_bboxes, grid_size, img_size):
-    &#39;&#39;&#39; Grid with true on the locations where the object is according to the slicing `criterium`. If you use 0-1 normalized bboxes, then give `img_size=(1,1)`. &#39;&#39;&#39;
-    device = batch_bboxes[0].device
-    scale = torch.tensor([grid_size[1]/img_size[1], grid_size[0]/img_size[0]]*2, device=device)
-    to_slice = lambda s: (slice(int(s[1]), int(s[3])), slice(int(s[0]), int(s[2])))
-    return [[to_slice(slicing(bbox*scale)) for bbox in bboxes]
-        for bboxes in batch_bboxes]</code></pre>
-</details>
-</dd>
 <dt id="grid.to_grid"><code class="name flex">
-<span>def <span class="ident">to_grid</span></span>(<span>batch_data, channels, batch_slices, grid_size, device=None)</span>
+<span>def <span class="ident">to_grid</span></span>(<span>mask, indices, batch_data)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Maps the <code>batch_data</code> onto a grid of size <code>grid_size</code>, according to the <code>batch_slices</code>.</p></div>
+<div class="desc"><p>Converts the given <code>batch_data</code> onto a grid, according to the <code>mask</code> and <code>indices</code> selected. Usually, you can avoid this function and work entirely in list space.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_grid(batch_data, channels, batch_slices, grid_size, device=None):
-    &#39;&#39;&#39; Maps the `batch_data` onto a grid of size `grid_size`, according to the `batch_slices`. &#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, channels, *grid_size), dtype=torch.float32, device=device)
-    for i, (slices, data) in enumerate(zip(batch_slices, batch_data)):
-        for (yy, xx), d in zip(slices, data):
-            grid[i, :, yy, xx] = d[:, None, None]
+<pre><code class="python">def to_grid(mask, indices, batch_data):
+    &#39;&#39;&#39; Converts the given `batch_data` onto a grid, according to the `mask` and `indices` selected. Usually, you can avoid this function and work entirely in list space. &#39;&#39;&#39;
+    device = mask.device
+    channels = batch_data[0].shape[1]
+    dtype = batch_data[0].dtype
+    grid = torch.zeros((mask.shape[0], channels, *mask.shape[1:]), dtype=dtype, device=device)
+    for g, m, d, i in zip(grid, mask, batch_data, indices):
+        g[:, m] = d[i].T
     return grid</code></pre>
 </details>
 </dd>
 <dt id="grid.where"><code class="name flex">
-<span>def <span class="ident">where</span></span>(<span>batch_slices, grid_size, device=None)</span>
+<span>def <span class="ident">where</span></span>(<span>slicing, batch_bboxes, grid_size, img_size)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy.</p></div>
+<div class="desc"><p>Following the given <code>slicing</code> function strategy, returns two things: a boolean grid mask where objects are located, and a list of indices of which bounding box was used. The mask can be used with <code><a title="grid.mask_select" href="#grid.mask_select">mask_select()</a></code> to convert a grid to a list, and the indices can be used with <code><a title="grid.indices_select" href="#grid.indices_select">indices_select()</a></code> to convert a list to another list matching the elements selected from the grid.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def where(batch_slices, grid_size, device=None):
-    &#39;&#39;&#39; Grid with 1 wherever the object is, 0 otherwise, according to the chosen slice strategy. &#39;&#39;&#39;
-    n = len(batch_slices)
-    grid = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
-    for i, slices in enumerate(batch_slices):
-        for yy, xx in slices:
-            grid[i, yy, xx] = True
-    return grid</code></pre>
+<pre><code class="python">def where(slicing, batch_bboxes, grid_size, img_size):
+    &#39;&#39;&#39; Following the given `slicing` function strategy, returns two things: a boolean grid mask where objects are located, and a list of indices of which bounding box was used. The mask can be used with `mask_select()` to convert a grid to a list, and the indices can be used with `indices_select()` to convert a list to another list matching the elements selected from the grid. &#39;&#39;&#39;
+    device = batch_bboxes[0].device
+    scale = torch.tensor([grid_size[1]/img_size[1],
+        grid_size[0]/img_size[0]]*2, device=device)
+    n = len(batch_bboxes)
+    mask = torch.zeros((n, *grid_size), dtype=torch.bool, device=device)
+    indices = torch.zeros((n, *grid_size), dtype=torch.int64, device=device)
+    for i, bboxes in enumerate(batch_bboxes):
+        for j, bbox in enumerate(bboxes):
+            s = slicing(bbox*scale)
+            yy = slice(int(s[1]), int(s[3]))
+            xx = slice(int(s[0]), int(s[2]))
+            mask[i, yy, xx] = True
+            indices[i, yy, xx] = j
+    indices = [i[m] for i, m in zip(indices, mask)]
+    return mask, indices</code></pre>
 </details>
 </dd>
 </dl>
@@ -224,11 +236,11 @@ def select(where, grid, keep_batches):
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
-<li><code><a title="grid.select" href="#grid.select">select</a></code></li>
+<li><code><a title="grid.indices_select" href="#grid.indices_select">indices_select</a></code></li>
+<li><code><a title="grid.mask_select" href="#grid.mask_select">mask_select</a></code></li>
 <li><code><a title="grid.slice_all" href="#grid.slice_all">slice_all</a></code></li>
 <li><code><a title="grid.slice_all_center" href="#grid.slice_all_center">slice_all_center</a></code></li>
 <li><code><a title="grid.slice_center" href="#grid.slice_center">slice_center</a></code></li>
-<li><code><a title="grid.slices" href="#grid.slices">slices</a></code></li>
 <li><code><a title="grid.to_grid" href="#grid.to_grid">to_grid</a></code></li>
 <li><code><a title="grid.where" href="#grid.where">where</a></code></li>
 </ul>

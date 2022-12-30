@@ -46,20 +46,18 @@ Since the number of bounding boxes varies for each image, the normal PyTorch cod
 tr = torch.utils.data.DataLoader(ds, 16, True, collate_fn=od.utils.collate_fn)
 ```
 
-**Grid:** When working with one-stage detection, we first need to represent the objects inside a given image as a grid (or multiple grids). You can do so during the data augmentation pipeline (which takes advantage of the DataLoader parallelization), but it might be simpler to do so inside the training loop (as done below in the `Grid` class).
+**Grid:** One-stage detection consists in predicting objects along a grid (or multiple grids). For that, we need to project the ground-truth in a grid. That can be done during the data augmentation pipeline (which takes advantage of the DataLoader parallelization), but it might be simpler to do so inside the training loop (as done below in the `Grid` class).
 
-Notice that slicing and how bounding boxes are setup changes greatly between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (the center). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations as long as the center is contained. For that reason, we have slicing functions that convert the original bounding box onto grid-coordinates of where the object is contained.
+The neural network convolutions already lay the predictions are in the form of a grid, therefore there are two possibilities: (1) also lay the ground-truth in the form of a grid, or (2) convert the predictions back to a list. We are going for option (2); however, even in such a case, we need to slice the objects in such a way as to be consist with such a grid. This slicing varies between models. Models like [YOLOv3](https://arxiv.org/abs/1804.02767) use a grid where each object occupies a single location (the center). Other models such as [FCOS](https://arxiv.org/abs/1904.01355) place each object on all locations as long as the center is contained. For that reason, we have slicing functions that convert the original bounding box onto grid-coordinates of where the object is contained.
 
-The two important set of functions are:
+Important functions we provide:
 
-* **Convert to grid [(N,4)] => (N,C,H,W)**
-    * `od.grid.slices()` returns a list of slices for each bounding box.
-    * `od.grid.to_grid()` converts the slices and some data (this data can be bounding boxes, classes, etc) to a grid.
-* **Convert back to lists (N,C,H,W) => (N,4)**
-    * `od.grid.where()` converts the slices onto a boolean grid indicating where the object is there. This function is used to help convert the grid back to lists, in conjunction with the following function.
-    * `od.grid.select()` converts the grid to the original list. This list can contain batches when doing evaluation (`keep_batches=True`) or a single list during training (`keep_batches=False`).
+* `od.grid.where()` returns both a boolean `mask` in the form of a grid, and a list of `indices` with the object for each one of the locations where the mask is true. These results can then be used with:
+* `od.grid.mask_select()` converts a grid to a list of objects.
+* `od.grid.indices_select()` converts a list of objects to another list where the objects are positioned in the same place as the respective mask. (For example, in FCOS, an object may be in multiple locations.)
+* `od.grid.to_grid()` converts a list of objects to a grid. This can be useful if you want to go with possibility (1) or it might be useful since some transformations require the data to be in the form of a grid.
 
-**Transforms:** Such as slicing varies according to the model, so do the features required by the model. Some transformation routines are provided to convert grids and compute things such as offsets (YOLOv3), relative coordinates and centerness (FCOS), etc.
+**Transforms:** Such as slicing varies according to the model, so do the features required by the model. Some transformation routines are provided to convert grids and compute things such as offsets (YOLOv3), relative coordinates and centerness (FCOS), etc. Some of these transformations work only with grids, while others accept both grids and lists of objects.
 
 **Model:** We use the PyTorch philosophy of having the training loop done by the programmer. Here we provide some boiler-plate code of how to do so. We will create the model in the following picture.
 
