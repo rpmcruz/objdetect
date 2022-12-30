@@ -16,10 +16,12 @@ def bboxes(bboxes, scale=(1, 1), labels=None, color='blue', linestyle='-'):
         if labels is not None:
             plt.text(xmin*w, ymin*h, str(labels[i]), c=color)
 
-def grid(size, color='gray'):
+def grid(grid_size, img_size, color='gray'):
     ''' Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes. '''
-    plt.vlines(np.linspace(0, w, size[1]+1), 0, h, c=color, lw=1)
-    plt.hlines(np.linspace(0, h, size[0]+1), 0, w, c=color, lw=1)
+    gh, gw = grid_size
+    ih, iw = img_size
+    plt.vlines(np.linspace(0, gw, iw+1), 0, gh, color=color, lw=1)
+    plt.hlines(np.linspace(0, gh, ih+1), 0, gw, color=color, lw=1)
 
 def grid_scores(scores, img_size, lt_color='gray', gt_color='red', threshold=0.5):
     ''' Draw the output scores. Useful for debugging if the model is learning to predict the scores correctly. '''

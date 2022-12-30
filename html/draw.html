@@ -45,10 +45,12 @@ def bboxes(bboxes, scale=(1, 1), labels=None, color=&#39;blue&#39;, linestyle=&#
         if labels is not None:
             plt.text(xmin*w, ymin*h, str(labels[i]), c=color)
 
-def grid(size, color=&#39;gray&#39;):
+def grid(grid_size, img_size, color=&#39;gray&#39;):
     &#39;&#39;&#39; Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes. &#39;&#39;&#39;
-    plt.vlines(np.linspace(0, w, size[1]+1), 0, h, c=color, lw=1)
-    plt.hlines(np.linspace(0, h, size[0]+1), 0, w, c=color, lw=1)
+    gh, gw = grid_size
+    ih, iw = img_size
+    plt.vlines(np.linspace(0, gw, iw+1), 0, gh, color=color, lw=1)
+    plt.hlines(np.linspace(0, gh, ih+1), 0, gw, color=color, lw=1)
 
 def grid_scores(scores, img_size, lt_color=&#39;gray&#39;, gt_color=&#39;red&#39;, threshold=0.5):
     &#39;&#39;&#39; Draw the output scores. Useful for debugging if the model is learning to predict the scores correctly. &#39;&#39;&#39;
@@ -91,7 +93,7 @@ def grid_scores(scores, img_size, lt_color=&#39;gray&#39;, gt_color=&#39;red&#39
 </details>
 </dd>
 <dt id="draw.grid"><code class="name flex">
-<span>def <span class="ident">grid</span></span>(<span>size, color='gray')</span>
+<span>def <span class="ident">grid</span></span>(<span>grid_size, img_size, color='gray')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes.</p></div>
@@ -99,10 +101,12 @@ def grid_scores(scores, img_size, lt_color=&#39;gray&#39;, gt_color=&#39;red&#39
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grid(size, color=&#39;gray&#39;):
+<pre><code class="python">def grid(grid_size, img_size, color=&#39;gray&#39;):
     &#39;&#39;&#39; Draws the horizontal and vertical grid lines. Useful when choosing the grid sizes. &#39;&#39;&#39;
-    plt.vlines(np.linspace(0, w, size[1]+1), 0, h, c=color, lw=1)
-    plt.hlines(np.linspace(0, h, size[0]+1), 0, w, c=color, lw=1)</code></pre>
+    gh, gw = grid_size
+    ih, iw = img_size
+    plt.vlines(np.linspace(0, gw, iw+1), 0, gh, color=color, lw=1)
+    plt.hlines(np.linspace(0, gh, ih+1), 0, gw, color=color, lw=1)</code></pre>
 </details>
 </dd>
 <dt id="draw.grid_scores"><code class="name flex">
