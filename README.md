@@ -171,6 +171,7 @@ for epoch in range(args.epochs):
 For evaluation, you just need to do:
 
 ```python
+model.eval()
 preds = model(images.to(device))
 preds = model.post_process(preds)
 preds = od.post.NMS(preds)
