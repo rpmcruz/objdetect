@@ -30,7 +30,7 @@ The package is divided into the following components:
 
 ## Getting Started
 
-A [notebook example](https://github.com/rpmcruz/objdetect/blob/main/example.ipynb) is provided with boiler-plate code to get you started. The notebook is a stripped-down implementation of [FCOS](https://arxiv.org/abs/1904.01355). You may find full implementations of FCOS and YOLO3 in the `implementations` folder. An implementation of Pixor that uses code from this repository may be [found here](https://github.com/rpmcruz/pixor).
+A [notebook example](https://github.com/rpmcruz/objdetect/blob/main/example.ipynb) is provided with boiler-plate code to get you started. The notebook is a stripped-down implementation of [FCOS](https://arxiv.org/abs/1904.01355). You may find full implementations of FCOS and YOLO3 in the [`implementations`](https://github.com/rpmcruz/objdetect/tree/main/implementations) folder. An implementation of Pixor that uses code from this repository may be [found here](https://github.com/rpmcruz/pixor).
 
 As will be seen, following the PyTorch tradition, this package does not try to do too much behind the scenes.
 
