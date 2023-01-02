@@ -1,6 +1,6 @@
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('model', choices=['simple'])
+parser.add_argument('model', choices=['simple', 'fcos', 'yolo3'])
 parser.add_argument('output')
 parser.add_argument('--data', default='/data')
 parser.add_argument('--epochs', type=int, default=100)
@@ -33,14 +33,31 @@ transform = A.Compose([
 
 animals = ['bird', 'cat', 'cow', 'dog', 'horse', 'sheep']
 tr = VOC(data_path, 'train', transform, download)
-tr = FilterClass(tr, animals)
+ds = tr = FilterClass(tr, animals)
 tr = torch.utils.data.DataLoader(tr, 4, True, collate_fn=od.utils.collate_fn, num_workers=2, pin_memory=True)
+
+########################## MODEL PARAMS ##########################
+
+K = len(animals)
+params = {'nclasses': K, 'img_size': img_size}
+
+############################# ANCHORS #############################
+
+if args.model == 'yolo3':
+    # like in the paper, we compute anchors "evenly across scales"
+    bboxes = flatten_sizes([d['bboxes'] for d in ds])
+    areas = [bb[0]*bb[1] for bb in bboxes]
+    ix = sorted(range(len(areas)), key=areas.__getitem__)
+    q1, q2 = int(len(ix)*(1/3)), int(len(ix)*(2/3))
+    anchors = [od.anchors.compute_anchors(bboxes[:q1], 3),
+        od.anchors.compute_anchors(bboxes[q1:q2], 3),
+        od.anchors.compute_anchors(bboxes[q2:], 3)]
+    params['anchors_per_scale'] = anchors
 
 ############################# MODEL #############################
 
 models = importlib.import_module(f'model_{args.model}')
-K = len(animals)
-model = models.Model(K, img_size).to(device)
+model = models.Model(**params).to(device)
 opt = torch.optim.Adam(model.parameters(), 1e-4)
 
 ############################# LOOP #############################

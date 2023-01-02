@@ -1,5 +1,5 @@
 '''
-This is a simplified version of FCOS using a single grid.
+This should be a fairly faithful implementation of the FCOS paper.
 https://arxiv.org/abs/1904.01355
 '''
 
@@ -73,25 +73,55 @@ class Grid(torch.nn.Module):
             labels_loss(pred_labels, target_labels).mean() + \
             centerness_loss(pred_centerness, target_centerness)
 
+class TopDown(torch.nn.Module):
+    # FCOS uses the same TopDown as "Feature Pyramid Networks for Object
+    # Detection".
+    def __init__(self, in_channels):
+        super().__init__()
+        self.conv1 = torch.nn.Conv2d(in_channels, 256, 1)
+        self.conv3 = torch.nn.Conv2d(256, 256, 3, padding=1)
+
+    def forward(self, left, top):
+        up = torch.nn.functional.interpolate
+        top = up(top, scale_factor=2, mode='nearest-exact')
+        return self.conv3(self.conv1(left) + top)
+
 class Model(torch.nn.Module):
     def __init__(self, nclasses, img_size):
         super().__init__()
         resnet = torchvision.models.resnet50(weights='DEFAULT')
         layers = list(resnet.children())[:-2]
         self.backbone = torch.nn.Sequential(*layers[:-3])
-        self.resnet_convs = layers[-3:]
-        self.updown_convs = torch.nn.ModuleList([
-            torch.nn.Conv2d(2048, ),
-        ])
-        heads = Heads(2048, nclasses)
+        self.C3 = layers[-3]
+        self.C4 = layers[-2]
+        self.C5 = layers[-1]
+        self.P3 = TopDown(2048)
+        self.P4 = TopDown(2048)
+        self.P5 = TopDown(2048)
+        self.P6 = torch.nn.Conv2d(2048, 256, 1, 2, 1)
+        self.P7 = torch.nn.Conv2d(256, 256, 1, 2, 1)
+        heads = Heads(256, nclasses)
         self.grids = torch.nn.ModuleList([Grid(heads, img_size) for _ in range(5)])
+        self.ms = [0, 64, 128, 256, 512, float('inf')]
 
     def forward(self, x):
         x = self.backbone(x)
-        return self.grid(x)
+        x3 = self.C3(x)
+        x4 = self.C4(x3)
+        x5 = self.C5(x4)
+        p5 = self.P5(x5)
+        p4 = self.P4(x4, p5)
+        p3 = self.P3(x3, p4)
+        p6 = self.P6(x5)
+        p7 = self.P7(p6)
+        return [grid(p) for grid, p in zip(self.grids, [p3, p4, p5, p6, p7])]
 
-    def post_process(self, x):
-        return self.grid.post_process(x)
+    def post_process(self, xs):
+        xs = [grid.post_process(x) for grid, x in zip(self.grids, xs)]
+        return {key: sum(x[key] for x in xs) for key in ['scores', 'bboxes', 'labels']}
 
     def compute_loss(self, preds, targets):
-        return self.grid.compute_loss(preds, targets)
+        od.utils.filter_grid(targets, grid_min, grid_max)
+        return sum(grid.compute_loss(pred,
+            od.utils.filter_grid(targets, m_min, m_max))
+            for grid, pred, m_min, m_max in zip(self.grids, preds, self.ms, self.ms[1:]))
