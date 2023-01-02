@@ -63,7 +63,7 @@ Important functions we provide:
 
 **Model:** We use the PyTorch philosophy of having the training loop done by the programmer. Here we provide some boiler-plate code of how to do so. We will create the model in the following picture.
 
-![](src/model.svg)
+![](model.svg)
 
 The model is inspired by [FCOS](https://arxiv.org/abs/1904.01355), but without multi-grid support. However, we separate the `Grid` and `Model` classes to make it intuitive for you to add multiple grids if you wish to do so. (In such a case, you may use `od.utils.filter_grid()` to filter the bounding boxes associated to each grid.)
 
