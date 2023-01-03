@@ -31,23 +31,22 @@
 Utilities to create and filter objects based on anchors.
 &#39;&#39;&#39;
 
-def compute_anchors(ds, n):
-    &#39;&#39;&#39;Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.&#39;&#39;&#39;
-    from sklearn.cluster import KMeans
-    BB = [d[&#39;bboxes&#39;] for d in ds]
-    BB = [(b[2], b[3]) for bb in BB for b in bb]
-    return KMeans(n).fit(BB).cluster_centers_
+import torch
 
-def fits_anchor(anchor, min_iou, bboxes):
-    &#39;&#39;&#39;Returns true to any bboxes that fit the anchor (i.e., with iou ≥ min_iou).&#39;&#39;&#39;
-    from . import metrics
-    def f(bbox):
-        xc = (bbox[0]+bbox[2]) / 2
-        yc = (bbox[1]+bbox[3]) / 2
-        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
-            xc+anchor[0]/2, yc+anchor[1]/2)
-        return metrics.IoU(bbox, anchor_box) &gt;= min_iou
-    return [f(bbox) for bbox in bboxes]</code></pre>
+def flatten_sizes(bboxes):
+    &#39;&#39;&#39; Flatten and return the sizes of each bounding box. &#39;&#39;&#39;
+    return [(b[2], b[3]) for bb in bboxes for b in bb]
+
+def compute_anchors(flatten_bboxes, n):
+    &#39;&#39;&#39; Uses K-Means to produce the top-`n` sizes for the given flatten bboxes. &#39;&#39;&#39;
+    from sklearn.cluster import KMeans
+    return KMeans(n, n_init=&#39;auto&#39;).fit(flatten_bboxes).cluster_centers_
+
+def anchors_ious(bbox, anchors):
+    &#39;&#39;&#39; Same as ordinary IoU but only uses width &amp; height. &#39;&#39;&#39;
+    I = torch.minimum(anchors[:, 2], bbox[2]) * torch.minimum(anchors[:, 3], bbox[3])
+    U = anchors[:, 2]*anchors[:, 3] + bbox[2]*bbox[3] - I
+    return I / U</code></pre>
 </details>
 </section>
 <section>
@@ -57,42 +56,49 @@ def fits_anchor(anchor, min_iou, bboxes):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="anchors.compute_anchors"><code class="name flex">
-<span>def <span class="ident">compute_anchors</span></span>(<span>ds, n)</span>
+<dt id="anchors.anchors_ious"><code class="name flex">
+<span>def <span class="ident">anchors_ious</span></span>(<span>bbox, anchors)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Uses K-Means to produce the top-<code>n</code> sizes for the given dataset <code>ds</code>.</p></div>
+<div class="desc"><p>Same as ordinary IoU but only uses width &amp; height.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def compute_anchors(ds, n):
-    &#39;&#39;&#39;Uses K-Means to produce the top-`n` sizes for the given dataset `ds`.&#39;&#39;&#39;
-    from sklearn.cluster import KMeans
-    BB = [d[&#39;bboxes&#39;] for d in ds]
-    BB = [(b[2], b[3]) for bb in BB for b in bb]
-    return KMeans(n).fit(BB).cluster_centers_</code></pre>
+<pre><code class="python">def anchors_ious(bbox, anchors):
+    &#39;&#39;&#39; Same as ordinary IoU but only uses width &amp; height. &#39;&#39;&#39;
+    I = torch.minimum(anchors[:, 2], bbox[2]) * torch.minimum(anchors[:, 3], bbox[3])
+    U = anchors[:, 2]*anchors[:, 3] + bbox[2]*bbox[3] - I
+    return I / U</code></pre>
 </details>
 </dd>
-<dt id="anchors.fits_anchor"><code class="name flex">
-<span>def <span class="ident">fits_anchor</span></span>(<span>anchor, min_iou, bboxes)</span>
+<dt id="anchors.compute_anchors"><code class="name flex">
+<span>def <span class="ident">compute_anchors</span></span>(<span>flatten_bboxes, n)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns true to any bboxes that fit the anchor (i.e., with iou ≥ min_iou).</p></div>
+<div class="desc"><p>Uses K-Means to produce the top-<code>n</code> sizes for the given flatten bboxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fits_anchor(anchor, min_iou, bboxes):
-    &#39;&#39;&#39;Returns true to any bboxes that fit the anchor (i.e., with iou ≥ min_iou).&#39;&#39;&#39;
-    from . import metrics
-    def f(bbox):
-        xc = (bbox[0]+bbox[2]) / 2
-        yc = (bbox[1]+bbox[3]) / 2
-        anchor_box = (xc-anchor[0]/2, yc-anchor[1]/2,
-            xc+anchor[0]/2, yc+anchor[1]/2)
-        return metrics.IoU(bbox, anchor_box) &gt;= min_iou
-    return [f(bbox) for bbox in bboxes]</code></pre>
+<pre><code class="python">def compute_anchors(flatten_bboxes, n):
+    &#39;&#39;&#39; Uses K-Means to produce the top-`n` sizes for the given flatten bboxes. &#39;&#39;&#39;
+    from sklearn.cluster import KMeans
+    return KMeans(n, n_init=&#39;auto&#39;).fit(flatten_bboxes).cluster_centers_</code></pre>
+</details>
+</dd>
+<dt id="anchors.flatten_sizes"><code class="name flex">
+<span>def <span class="ident">flatten_sizes</span></span>(<span>bboxes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Flatten and return the sizes of each bounding box.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def flatten_sizes(bboxes):
+    &#39;&#39;&#39; Flatten and return the sizes of each bounding box. &#39;&#39;&#39;
+    return [(b[2], b[3]) for bb in bboxes for b in bb]</code></pre>
 </details>
 </dd>
 </dl>
@@ -108,8 +114,9 @@ def fits_anchor(anchor, min_iou, bboxes):
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="anchors.anchors_ious" href="#anchors.anchors_ious">anchors_ious</a></code></li>
 <li><code><a title="anchors.compute_anchors" href="#anchors.compute_anchors">compute_anchors</a></code></li>
-<li><code><a title="anchors.fits_anchor" href="#anchors.fits_anchor">fits_anchor</a></code></li>
+<li><code><a title="anchors.flatten_sizes" href="#anchors.flatten_sizes">flatten_sizes</a></code></li>
 </ul>
 </li>
 </ul>

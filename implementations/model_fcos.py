@@ -5,6 +5,7 @@ https://arxiv.org/abs/1904.01355
 
 import torchvision
 import torch
+import backbones
 import objdetect as od
 
 bboxes_loss = torchvision.ops.generalized_box_iou_loss
@@ -16,6 +17,7 @@ class Heads(torch.nn.Module):
     def __init__(self, in_channels, nclasses):
         # like FCOS, we do not have a dedicated 'scores' prediction. it's just
         # the argmax of the classes.
+        super().__init__()
         self.classes = torch.nn.Conv2d(in_channels, nclasses, 1)
         self.bboxes = torch.nn.Conv2d(in_channels, 4, 1)
         self.centerness = torch.nn.Conv2d(in_channels, 1, 1)
@@ -55,6 +57,10 @@ class Grid(torch.nn.Module):
         mask, indices = od.grid.where(od.grid.slice_all_center, targets['bboxes'], grid_size, self.img_size)
         # preds grid -> list
         pred_bboxes = od.grid.mask_select(mask, preds['bboxes'])
+        if len(pred_bboxes) == 0:
+            # when using multi-scale, it's possible that some scales have nothing
+            # to predict. return now to avoid nan losses.
+            return 0
         pred_labels = od.grid.mask_select(mask, preds['labels'])
         pred_centerness = od.grid.mask_select(mask, preds['centerness'])
         # targets list -> list
@@ -89,30 +95,23 @@ class TopDown(torch.nn.Module):
 class Model(torch.nn.Module):
     def __init__(self, nclasses, img_size):
         super().__init__()
-        resnet = torchvision.models.resnet50(weights='DEFAULT')
-        layers = list(resnet.children())[:-2]
-        self.backbone = torch.nn.Sequential(*layers[:-3])
-        self.C3 = layers[-3]
-        self.C4 = layers[-2]
-        self.C5 = layers[-1]
-        self.P3 = TopDown(2048)
-        self.P4 = TopDown(2048)
-        self.P5 = TopDown(2048)
-        self.P6 = torch.nn.Conv2d(2048, 256, 1, 2, 1)
+        self.backbone = backbones.Resnet50()
+        channels = self.backbone.channels
+        self.P3 = TopDown(channels[0])
+        self.P4 = TopDown(channels[1])
+        self.P5 = torch.nn.Conv2d(channels[2], 256, 3, padding=1)
+        self.P6 = torch.nn.Conv2d(channels[2], 256, 1, 2, 1)
         self.P7 = torch.nn.Conv2d(256, 256, 1, 2, 1)
         heads = Heads(256, nclasses)
         self.grids = torch.nn.ModuleList([Grid(heads, img_size) for _ in range(5)])
         self.ms = [0, 64, 128, 256, 512, float('inf')]
 
     def forward(self, x):
-        x = self.backbone(x)
-        x3 = self.C3(x)
-        x4 = self.C4(x3)
-        x5 = self.C5(x4)
-        p5 = self.P5(x5)
-        p4 = self.P4(x4, p5)
-        p3 = self.P3(x3, p4)
-        p6 = self.P6(x5)
+        c3, c4, c5 = self.backbone(x)
+        p5 = self.P5(c5)
+        p4 = self.P4(c4, p5)
+        p3 = self.P3(c3, p4)
+        p6 = self.P6(c5)
         p7 = self.P7(p6)
         return [grid(p) for grid, p in zip(self.grids, [p3, p4, p5, p6, p7])]
 
@@ -121,7 +120,6 @@ class Model(torch.nn.Module):
         return {key: sum(x[key] for x in xs) for key in ['scores', 'bboxes', 'labels']}
 
     def compute_loss(self, preds, targets):
-        od.utils.filter_grid(targets, grid_min, grid_max)
-        return sum(grid.compute_loss(pred,
-            od.utils.filter_grid(targets, m_min, m_max))
+        return sum(
+            grid.compute_loss(pred, filter_grid(targets, m_min, m_max))
             for grid, pred, m_min, m_max in zip(self.grids, preds, self.ms, self.ms[1:]))

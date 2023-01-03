@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 class VOC(torch.utils.data.Dataset):
-    def __init__(self, root, fold, transform=None, download=True):
+    def __init__(self, root, fold, transform=None, download=False):
         super().__init__()
         fold = 'test' if fold == 'val' else fold
         self.ds = torchvision.datasets.VOCDetection(root, image_set=fold, download=download)

@@ -11,7 +11,7 @@ def flatten_sizes(bboxes):
 def compute_anchors(flatten_bboxes, n):
     ''' Uses K-Means to produce the top-`n` sizes for the given flatten bboxes. '''
     from sklearn.cluster import KMeans
-    return KMeans(n).fit(flatten_bboxes).cluster_centers_
+    return KMeans(n, n_init='auto').fit(flatten_bboxes).cluster_centers_
 
 def anchors_ious(bbox, anchors):
     ''' Same as ordinary IoU but only uses width & height. '''

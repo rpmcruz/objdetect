@@ -7,62 +7,22 @@ https://arxiv.org/abs/1804.02767
 
 import torchvision
 import torch
+import backbones
 import objdetect as od
 
 scores_loss = torch.nn.BCEWithLogitsLoss()
 labels_loss = torch.nn.BCEWithLogitsLoss()
 bboxes_loss = torch.nn.MSELoss()
 
-# YOLO3 uses Darknet53 as the backbone. This implementation is based on
-# https://github.com/developer0hye/PyTorch-Darknet53
-
-def conv_batch(in_num, out_num, kernel_size=3, padding=1, stride=1):
-    return torch.nn.Sequential(
-        torch.nn.Conv2d(in_num, out_num, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-        torch.nn.BatchNorm2d(out_num),
-        torch.nn.LeakyReLU())
-
-def rep_blocks(self, in_channels, num_blocks):
-    layers = []
-    for i in range(0, num_blocks):
-        layers.append(ResBlock(in_channels))
-    return torch.nn.Sequential(*layers)
-
-class ResBlock(torch.nn.Module):
-    def __init__(self, in_channels):
-        super().__init__()
-        reduced_channels = int(in_channels/2)
-        self.layer1 = conv_batch(in_channels, reduced_channels, 1, padding=0)
-        self.layer2 = conv_batch(reduced_channels, in_channels)
-
-    def forward(self, x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out += x
-        return out
-
-class Darknet53(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = conv_batch(3, 32)
-        self.conv2 = conv_batch(32, 64, stride=2)
-        self.block1 = rep_blocks(64, 1)
-        self.p1 = conv_batch(64, 128, stride=2)
-        self.block2 = rep_blocks(128, 2)
-        self.p2 = conv_batch(128, 256, stride=2)
-        self.block3 = rep_blocks(256, 8)
-        self.p3 = conv_batch(256, 512, stride=2)
-        self.block4 = rep_blocks(512, 8)
-        self.p4 = conv_batch(512, 1024, stride=2)
-
-    def forward(self, x):
-        p1 = self.p1(self.block1(self.conv2(self.conv1(x))))
-        p2 = self.p2(self.block2(p1))
-        p3 = self.p3(self.block2(p2))
-        p4 = self.p4(self.block4(p3))
-        return p1, p2, p3, p4
-
-# YOLO3
+def compute_anchors(ds):
+    # like in the paper, we compute anchors "evenly across scales"
+    bboxes = od.anchors.flatten_sizes([d['bboxes'] for d in ds])
+    areas = [bb[0]*bb[1] for bb in bboxes]
+    ix = sorted(range(len(areas)), key=areas.__getitem__)
+    q1, q2 = int(len(ix)*(1/3)), int(len(ix)*(2/3))
+    return [od.anchors.compute_anchors(bboxes[:q1], 3),
+        od.anchors.compute_anchors(bboxes[q1:q2], 3),
+        od.anchors.compute_anchors(bboxes[q2:], 3)]
 
 class Grid(torch.nn.Module):
     def __init__(self, in_channels, nclasses, img_size, anchor, scale):
@@ -75,9 +35,10 @@ class Grid(torch.nn.Module):
         self.bboxes = torch.nn.Conv2d(in_channels, 4, 1)
 
     def forward(self, x):
+        bboxes = self.bboxes(x)
+        gh, gw = bboxes.shape[2:]
         xx = torch.arange(0, gw, dtype=torch.float32, device=x.device)[None, :]
         yy = torch.arange(0, gh, dtype=torch.float32, device=x.device)[:, None]
-        bboxes = self.bboxes(x)
         bboxes[:, 0] = torch.sigmoid(xx * bboxes[:, 0])
         bboxes[:, 1] = torch.sigmoid(yy * bboxes[:, 1])
         bboxes[:, 2] = self.pw * torch.exp(bboxes[:, 2])
@@ -119,18 +80,18 @@ class Grid(torch.nn.Module):
 class Model(torch.nn.Module):
     def __init__(self, nclasses, img_size, anchors_per_scale):
         super().__init__()
-        self.backbone = Darknet53()
-        channels = [256, 512, 1024]
-        self.grids = torch.nn.Module([
-            Grid(channels[scale], anchor, scale+1)
+        self.backbone = backbones.Darknet53()
+        channels = self.backbone.channels
+        self.grids = torch.nn.ModuleList([
+            Grid(channels[scale], nclasses, img_size, anchor, scale)
             for scale, anchors in enumerate(anchors_per_scale)
             for anchor in anchors
         ])
-        self.anchors = [anchor for anchors in anchors_per_scale for anchor in anchors]
+        self.anchors = torch.tensor([anchor for anchors in anchors_per_scale for anchor in anchors])
 
     def forward(self, x):
         ps = self.backbone(x)
-        return [grid(ps[grid.scale]) for grid in grids]
+        return [grid(ps[grid.scale]) for grid in self.grids]
 
     def post_process(self, x):
         xs = [grid.post_process(x) for grid, x in zip(self.grids, xs)]
@@ -139,6 +100,8 @@ class Model(torch.nn.Module):
     def compute_loss(self, preds, targets):
         # "our system only assigns one bounding box prior [anchor] for each
         # ground truth object"
+        targets_ix = [[od.anchors.anchors_ious(bbox, self.anchors).argmax()
+            for bbox in bboxes] for bboxes in targets['bboxes']]
         return sum([grid.compute_loss(pred, {
             'bboxes': [bboxes[ix] for bboxes, ix in zip(targets['bboxes'], targets_ix)],
             'labels': [labels[ix] for labels, ix in zip(targets['labels'], targets_ix)],
