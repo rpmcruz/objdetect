@@ -15,6 +15,6 @@ def compute_anchors(flatten_bboxes, n):
 
 def anchors_ious(bbox, anchors):
     ''' Same as ordinary IoU but only uses width & height. '''
-    I = torch.minimum(anchors[:, 2], bbox[2]) * torch.minimum(anchors[:, 3], bbox[3])
-    U = anchors[:, 2]*anchors[:, 3] + bbox[2]*bbox[3] - I
+    I = torch.minimum(anchors[:, 0], bbox[2]) * torch.minimum(anchors[:, 1], bbox[3])
+    U = anchors[:, 0]*anchors[:, 1] + bbox[2]*bbox[3] - I
     return I / U
