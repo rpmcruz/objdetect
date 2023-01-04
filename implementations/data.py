@@ -20,10 +20,11 @@ class VOC(torch.utils.data.Dataset):
         image = np.array(image)
         objs = xml['annotation']['object']
         labels = [self.classes.index(o['name']) for o in objs]
-        bboxes = [(
+        bboxes = torch.tensor([(
             float(o['bndbox']['xmin']), float(o['bndbox']['ymin']),
             float(o['bndbox']['xmax']), float(o['bndbox']['ymax']),
-            ) for o in objs]
+            ) for o in objs], dtype=torch.float32)
+        bboxes = bboxes.reshape(len(bboxes), 4)
         d = {'image': image, 'bboxes': bboxes, 'labels': labels}
         if self.transform:
             d = self.transform(**d)
