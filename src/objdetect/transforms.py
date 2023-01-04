@@ -4,29 +4,30 @@ Converts lists or grids into a different space more appropriate to the task. Not
 
 import torch
 
-def offset_logsize_bboxes(data, grid_size, img_size):
+def offset_logsize_bboxes(data, grid_size, img_size, prior_size=(1, 1)):
     ''' Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. '''
     gh, gw = grid_size
     ih, iw = img_size
-    xc = (grid[:, 0] + grid[:, 2]) / 2
-    yc = (grid[:, 1] + grid[:, 3]) / 2
+    ph, pw = prior_size
+    xc = (data[:, 0] + data[:, 2]) / 2
+    yc = (data[:, 1] + data[:, 3]) / 2
     xo = (xc % (iw/gw)) * (gw/iw)
     yo = (yc % (ih/gh)) * (gh/ih)
-    bw = torch.log(grid[:, 2] - grid[:, 0])
-    bh = torch.log(grid[:, 3] - grid[:, 1])
+    bw = torch.log((data[:, 2] - data[:, 0]) / pw)
+    bh = torch.log((data[:, 3] - data[:, 1]) / ph)
     return torch.stack((xo, yo, bw, bh), 1)
 
-def inv_offset_logsize_bboxes(grid, img_size):
+def inv_offset_logsize_bboxes(grid, img_size, prior_size=(1, 1)):
     ''' Invert the grid created by the function with the same name. '''
-    device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size
-    xx = torch.arange(0, gw, dtype=torch.float32, device=device)[None, :]
-    yy = torch.arange(0, gh, dtype=torch.float32, device=device)[:, None]
-    xc = (xx+grid[:, 0]) * (iw/gw)
-    yc = (yy+grid[:, 1]) * (ih/gh)
-    bw = torch.exp(grid[:, 2])
-    bh = torch.exp(grid[:, 3])
+    ph, pw = prior_size
+    xx = torch.arange(0, gw, dtype=torch.float32, device=x.device)[None, :]
+    yy = torch.arange(0, gh, dtype=torch.float32, device=x.device)[:, None]
+    xc = (xx + grid[:, 0]) * (iw/gw)
+    yc = (yy + grid[:, 1]) * (ih/gh)
+    bw = pw * torch.exp(grid[:, 2])
+    bh = ph * torch.exp(grid[:, 3])
     return torch.stack((xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2), 1)
 
 def rel_bboxes(grid, img_size, corner_offset=0.5):

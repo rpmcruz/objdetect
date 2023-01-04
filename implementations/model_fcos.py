@@ -57,10 +57,9 @@ class Grid(torch.nn.Module):
         mask, indices = od.grid.where(od.grid.slice_all_center, targets['bboxes'], grid_size, self.img_size)
         # preds grid -> list
         pred_bboxes = od.grid.mask_select(mask, preds['bboxes'])
-        if len(pred_bboxes) == 0:
-            # when using multi-scale, it's possible that some scales have nothing
-            # to predict. return now to avoid nan losses.
-            return 0
+        # when using multi-scale, it's possible that some scales have nothing
+        # to predict. return now to avoid nan losses.
+        if len(pred_bboxes) == 0: return 0
         pred_labels = od.grid.mask_select(mask, preds['labels'])
         pred_centerness = od.grid.mask_select(mask, preds['centerness'])
         # targets list -> list
@@ -121,5 +120,5 @@ class Model(torch.nn.Module):
 
     def compute_loss(self, preds, targets):
         return sum(
-            grid.compute_loss(pred, filter_grid(targets, m_min, m_max))
+            grid.compute_loss(pred, od.utils.filter_grid(targets, m_min, m_max))
             for grid, pred, m_min, m_max in zip(self.grids, preds, self.ms, self.ms[1:]))

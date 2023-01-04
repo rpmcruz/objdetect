@@ -27,15 +27,12 @@ transform = A.Compose([
 
 ############################# DATA LOAD #############################
 
-animals = ['bird', 'cat', 'cow', 'dog', 'horse', 'sheep']
-tr = VOC(data_path, 'test', transform, download)
-ds = ts = FilterClass(ts, animals)
-ts = torch.utils.data.DataLoader(ts, 4, True, collate_fn=od.utils.collate_fn, num_workers=2, pin_memory=True)
+ds = VOC(data_path, 'test', transform, download)
+ts = torch.utils.data.DataLoader(ds, 4, True, collate_fn=od.utils.collate_fn, num_workers=2, pin_memory=True)
 
 ########################## MODEL PARAMS ##########################
 
-K = len(animals)
-params = {'nclasses': K, 'img_size': img_size}
+params = {'nclasses': ds.nclasses, 'img_size': img_size}
 
 ############################# MODEL #############################
 

@@ -31,15 +31,12 @@ transform = A.Compose([
 
 ############################# DATA LOAD #############################
 
-animals = ['bird', 'cat', 'cow', 'dog', 'horse', 'sheep']
-tr = data.VOC(args.data, 'train', transform)
-ds = tr = data.FilterClass(tr, animals)
-tr = torch.utils.data.DataLoader(tr, 4, True, collate_fn=od.utils.collate_fn, num_workers=2, pin_memory=True)
+ds = data.VOC(args.data, 'train', transform)
+tr = torch.utils.data.DataLoader(ds, 8, True, collate_fn=od.utils.collate_fn, num_workers=2, pin_memory=True)
 
 ############################# MODEL #############################
 
-K = len(animals)
-params = {'nclasses': K, 'img_size': img_size}
+params = {'nclasses': ds.nclasses, 'img_size': img_size}
 models = importlib.import_module(f'model_{args.model}')
 if args.model == 'yolo3':
     params['anchors_per_scale'] = models.compute_anchors(ds)
