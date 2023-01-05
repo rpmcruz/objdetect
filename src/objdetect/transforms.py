@@ -37,7 +37,7 @@ def rel_bboxes(grid, img_size, corner_offset=0.5):
     ih, iw = img_size
     yy = (torch.arange(gh, dtype=torch.float32, device=device) + corner_offset) * (ih/gh)
     xx = (torch.arange(gw, dtype=torch.float32, device=device) + corner_offset) * (iw/gw)
-    xx, yy = torch.meshgrid(yy, xx, indexing='xy')
+    yy, xx = torch.meshgrid(yy, xx, indexing='ij')
     mesh_grid = torch.stack((xx, yy, xx, yy))[None]
     sign = torch.tensor((-1, -1, 1, 1), dtype=torch.float32, device=device)[None, :, None, None]
     return mesh_grid + sign*grid

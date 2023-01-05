@@ -37,6 +37,9 @@ def collate_fn(batch):
     &#39;&#39;&#39; The number of bounding boxes varies for each image, therefore the default PyTorch `collate` function (which creates the batches) must be replaced so that only images are turned into tensors. &#39;&#39;&#39;
     images = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
     targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
+    # a bit of a hack: albumentations shapes empty bboxes as (0,), but it&#39;s more
+    # convenient for them to be shape (0, 4).
+    targets[&#39;bboxes&#39;] = [bboxes.reshape(len(bboxes), 4) for bboxes in targets[&#39;bboxes&#39;]]
     return images, targets
 
 def filter_grid(batch, grid_min, grid_max, keys=[&#39;bboxes&#39;, &#39;labels&#39;]):
@@ -68,6 +71,9 @@ def filter_grid(batch, grid_min, grid_max, keys=[&#39;bboxes&#39;, &#39;labels&#
     &#39;&#39;&#39; The number of bounding boxes varies for each image, therefore the default PyTorch `collate` function (which creates the batches) must be replaced so that only images are turned into tensors. &#39;&#39;&#39;
     images = torch.stack([torch.as_tensor(d[&#39;image&#39;]) for d in batch])
     targets = {key: [torch.as_tensor(d[key]) for d in batch] for key in batch[0].keys()}
+    # a bit of a hack: albumentations shapes empty bboxes as (0,), but it&#39;s more
+    # convenient for them to be shape (0, 4).
+    targets[&#39;bboxes&#39;] = [bboxes.reshape(len(bboxes), 4) for bboxes in targets[&#39;bboxes&#39;]]
     return images, targets</code></pre>
 </details>
 </dd>
