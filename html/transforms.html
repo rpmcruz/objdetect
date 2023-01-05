@@ -33,29 +33,30 @@ Converts lists or grids into a different space more appropriate to the task. Not
 
 import torch
 
-def offset_logsize_bboxes(data, grid_size, img_size):
+def offset_logsize_bboxes(data, grid_size, img_size, prior_size=(1, 1)):
     &#39;&#39;&#39; Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. &#39;&#39;&#39;
     gh, gw = grid_size
     ih, iw = img_size
-    xc = (grid[:, 0] + grid[:, 2]) / 2
-    yc = (grid[:, 1] + grid[:, 3]) / 2
+    ph, pw = prior_size
+    xc = (data[:, 0] + data[:, 2]) / 2
+    yc = (data[:, 1] + data[:, 3]) / 2
     xo = (xc % (iw/gw)) * (gw/iw)
     yo = (yc % (ih/gh)) * (gh/ih)
-    bw = torch.log(grid[:, 2] - grid[:, 0])
-    bh = torch.log(grid[:, 3] - grid[:, 1])
+    bw = torch.log((data[:, 2] - data[:, 0]) / pw)
+    bh = torch.log((data[:, 3] - data[:, 1]) / ph)
     return torch.stack((xo, yo, bw, bh), 1)
 
-def inv_offset_logsize_bboxes(grid, img_size):
+def inv_offset_logsize_bboxes(grid, img_size, prior_size=(1, 1)):
     &#39;&#39;&#39; Invert the grid created by the function with the same name. &#39;&#39;&#39;
-    device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size
-    xx = torch.arange(0, gw, dtype=torch.float32, device=device)[None, :]
-    yy = torch.arange(0, gh, dtype=torch.float32, device=device)[:, None]
-    xc = (xx+grid[:, 0]) * (iw/gw)
-    yc = (yy+grid[:, 1]) * (ih/gh)
-    bw = torch.exp(grid[:, 2])
-    bh = torch.exp(grid[:, 3])
+    ph, pw = prior_size
+    xx = torch.arange(0, gw, dtype=torch.float32, device=x.device)[None, :]
+    yy = torch.arange(0, gh, dtype=torch.float32, device=x.device)[:, None]
+    xc = (xx + grid[:, 0]) * (iw/gw)
+    yc = (yy + grid[:, 1]) * (ih/gh)
+    bw = pw * torch.exp(grid[:, 2])
+    bh = ph * torch.exp(grid[:, 3])
     return torch.stack((xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2), 1)
 
 def rel_bboxes(grid, img_size, corner_offset=0.5):
@@ -65,7 +66,7 @@ def rel_bboxes(grid, img_size, corner_offset=0.5):
     ih, iw = img_size
     yy = (torch.arange(gh, dtype=torch.float32, device=device) + corner_offset) * (ih/gh)
     xx = (torch.arange(gw, dtype=torch.float32, device=device) + corner_offset) * (iw/gw)
-    xx, yy = torch.meshgrid(yy, xx, indexing=&#39;xy&#39;)
+    yy, xx = torch.meshgrid(yy, xx, indexing=&#39;ij&#39;)
     mesh_grid = torch.stack((xx, yy, xx, yy))[None]
     sign = torch.tensor((-1, -1, 1, 1), dtype=torch.float32, device=device)[None, :, None, None]
     return mesh_grid + sign*grid
@@ -101,7 +102,7 @@ def centerness(rel_bboxes):
 </details>
 </dd>
 <dt id="transforms.inv_offset_logsize_bboxes"><code class="name flex">
-<span>def <span class="ident">inv_offset_logsize_bboxes</span></span>(<span>grid, img_size)</span>
+<span>def <span class="ident">inv_offset_logsize_bboxes</span></span>(<span>grid, img_size, prior_size=(1, 1))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Invert the grid created by the function with the same name.</p></div>
@@ -109,22 +110,22 @@ def centerness(rel_bboxes):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def inv_offset_logsize_bboxes(grid, img_size):
+<pre><code class="python">def inv_offset_logsize_bboxes(grid, img_size, prior_size=(1, 1)):
     &#39;&#39;&#39; Invert the grid created by the function with the same name. &#39;&#39;&#39;
-    device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size
-    xx = torch.arange(0, gw, dtype=torch.float32, device=device)[None, :]
-    yy = torch.arange(0, gh, dtype=torch.float32, device=device)[:, None]
-    xc = (xx+grid[:, 0]) * (iw/gw)
-    yc = (yy+grid[:, 1]) * (ih/gh)
-    bw = torch.exp(grid[:, 2])
-    bh = torch.exp(grid[:, 3])
+    ph, pw = prior_size
+    xx = torch.arange(0, gw, dtype=torch.float32, device=x.device)[None, :]
+    yy = torch.arange(0, gh, dtype=torch.float32, device=x.device)[:, None]
+    xc = (xx + grid[:, 0]) * (iw/gw)
+    yc = (yy + grid[:, 1]) * (ih/gh)
+    bw = pw * torch.exp(grid[:, 2])
+    bh = ph * torch.exp(grid[:, 3])
     return torch.stack((xc-bw/2, yc-bh/2, xc+bw/2, yc+bh/2), 1)</code></pre>
 </details>
 </dd>
 <dt id="transforms.offset_logsize_bboxes"><code class="name flex">
-<span>def <span class="ident">offset_logsize_bboxes</span></span>(<span>data, grid_size, img_size)</span>
+<span>def <span class="ident">offset_logsize_bboxes</span></span>(<span>data, grid_size, img_size, prior_size=(1, 1))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <a href="https://arxiv.org/abs/1804.02767">YOLOv3</a>. Please notice this only makes sense if slices=slice_center_locations.</p></div>
@@ -132,16 +133,17 @@ def centerness(rel_bboxes):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def offset_logsize_bboxes(data, grid_size, img_size):
+<pre><code class="python">def offset_logsize_bboxes(data, grid_size, img_size, prior_size=(1, 1)):
     &#39;&#39;&#39; Similar to [YOLOv3](https://arxiv.org/abs/1804.02767). Please notice this only makes sense if slices=slice_center_locations. &#39;&#39;&#39;
     gh, gw = grid_size
     ih, iw = img_size
-    xc = (grid[:, 0] + grid[:, 2]) / 2
-    yc = (grid[:, 1] + grid[:, 3]) / 2
+    ph, pw = prior_size
+    xc = (data[:, 0] + data[:, 2]) / 2
+    yc = (data[:, 1] + data[:, 3]) / 2
     xo = (xc % (iw/gw)) * (gw/iw)
     yo = (yc % (ih/gh)) * (gh/ih)
-    bw = torch.log(grid[:, 2] - grid[:, 0])
-    bh = torch.log(grid[:, 3] - grid[:, 1])
+    bw = torch.log((data[:, 2] - data[:, 0]) / pw)
+    bh = torch.log((data[:, 3] - data[:, 1]) / ph)
     return torch.stack((xo, yo, bw, bh), 1)</code></pre>
 </details>
 </dd>
@@ -161,7 +163,7 @@ def centerness(rel_bboxes):
     ih, iw = img_size
     yy = (torch.arange(gh, dtype=torch.float32, device=device) + corner_offset) * (ih/gh)
     xx = (torch.arange(gw, dtype=torch.float32, device=device) + corner_offset) * (iw/gw)
-    xx, yy = torch.meshgrid(yy, xx, indexing=&#39;xy&#39;)
+    yy, xx = torch.meshgrid(yy, xx, indexing=&#39;ij&#39;)
     mesh_grid = torch.stack((xx, yy, xx, yy))[None]
     sign = torch.tensor((-1, -1, 1, 1), dtype=torch.float32, device=device)[None, :, None, None]
     return mesh_grid + sign*grid</code></pre>
