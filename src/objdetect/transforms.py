@@ -19,11 +19,12 @@ def offset_logsize_bboxes(data, grid_size, img_size, prior_size=(1, 1)):
 
 def inv_offset_logsize_bboxes(grid, img_size, prior_size=(1, 1)):
     ''' Invert the grid created by the function with the same name. '''
+    device = grid.device
     gh, gw = grid.shape[2:]
     ih, iw = img_size
     ph, pw = prior_size
-    xx = torch.arange(0, gw, dtype=torch.float32, device=x.device)[None, :]
-    yy = torch.arange(0, gh, dtype=torch.float32, device=x.device)[:, None]
+    xx = torch.arange(0, gw, dtype=torch.float32, device=device)[None, :]
+    yy = torch.arange(0, gh, dtype=torch.float32, device=device)[:, None]
     xc = (xx + grid[:, 0]) * (iw/gw)
     yc = (yy + grid[:, 1]) * (ih/gh)
     bw = pw * torch.exp(grid[:, 2])
