@@ -61,4 +61,4 @@ for epoch in range(args.epochs):
     toc = time()
     print(f'Epoch {epoch+1}/{args.epochs} - {toc-tic:.0f}s - Avg loss: {avg_loss}')
 
-torch.save(model, args.output)
+torch.save(model.cpu(), args.output)

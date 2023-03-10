@@ -44,7 +44,7 @@ class Grid(torch.nn.Module):
 
     def post_process(self, preds, threshold=0.5):
         # YOLO3 uses independent classifiers (not softmax)
-        labels = torch.sigmoid(preds['labels'], 1).argmax(1, keepdim=True)
+        labels = torch.sigmoid(preds['labels']).argmax(1, keepdim=True)
         scores = torch.sigmoid(preds['scores'])
         bboxes = od.transforms.inv_offset_logsize_bboxes(preds['bboxes'], self.img_size, self.anchor)
         mask = scores[:, 0] >= threshold
@@ -93,9 +93,10 @@ class Model(torch.nn.Module):
         ps = self.backbone(x)
         return [grid(ps[grid.scale]) for grid in self.grids]
 
-    def post_process(self, x):
+    def post_process(self, xs):
         xs = [grid.post_process(x) for grid, x in zip(self.grids, xs)]
-        return {key: sum(x[key] for x in xs) for key in ['scores', 'bboxes', 'labels']}
+        n = len(xs[0]['bboxes'])
+        return {key: [torch.cat([x[key][i] for x in xs]) for i in range(n)] for key in xs[0]}
 
     def compute_loss(self, preds, targets):
         # "our system only assigns one bounding box prior [anchor] for each

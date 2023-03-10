@@ -8,7 +8,7 @@ class VOC(torch.utils.data.Dataset):
 
     def __init__(self, root, fold, transform=None, download=False):
         super().__init__()
-        fold = 'test' if fold == 'val' else fold
+        fold = 'val' if fold == 'test' else fold
         self.ds = torchvision.datasets.VOCDetection(root, image_set=fold, download=download)
         self.transform = transform
 
