@@ -11,6 +11,23 @@ bboxes_loss = torchvision.ops.generalized_box_iou_loss
 centerness_loss = torch.nn.BCEWithLogitsLoss()
 labels_loss = torchvision.ops.sigmoid_focal_loss
 
+class Model(torch.nn.Module):
+    def __init__(self, nclasses, img_size):
+        super().__init__()
+        resnet = torchvision.models.resnet50(weights='DEFAULT')
+        self.backbone = torch.nn.Sequential(*list(resnet.children())[:-2])
+        self.grid = Grid(2048, nclasses, img_size)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        return self.grid(x)
+
+    def post_process(self, x):
+        return self.grid.post_process(x)
+
+    def compute_loss(self, preds, targets):
+        return self.grid.compute_loss(preds, targets)
+
 class Grid(torch.nn.Module):
     def __init__(self, in_channels, nclasses, img_size):
         super().__init__()
@@ -64,20 +81,3 @@ class Grid(torch.nn.Module):
         return bboxes_loss(pred_bboxes, target_bboxes).mean() + \
             labels_loss(pred_labels, target_labels).mean() + \
             centerness_loss(pred_centerness, target_centerness)
-
-class Model(torch.nn.Module):
-    def __init__(self, nclasses, img_size):
-        super().__init__()
-        resnet = torchvision.models.resnet50(weights='DEFAULT')
-        self.backbone = torch.nn.Sequential(*list(resnet.children())[:-2])
-        self.grid = Grid(2048, nclasses, img_size)
-
-    def forward(self, x):
-        x = self.backbone(x)
-        return self.grid(x)
-
-    def post_process(self, x):
-        return self.grid.post_process(x)
-
-    def compute_loss(self, preds, targets):
-        return self.grid.compute_loss(preds, targets)
